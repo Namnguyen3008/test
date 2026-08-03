@@ -67,3 +67,11 @@ Helm injects database and Redis secrets only into non-web workloads and the Gemi
 ## ADR-017: Persistent import is a minimal deterministic projection
 
 The source SQLite catalog is opened read-only and never copied wholesale into patient-facing persistence. Only retrieval-eligible text, a small allowlist of routing metadata, canonical source links, governance statuses and stable hashes are projected. Logical releases, records and chunks receive deterministic UUIDs, making resume idempotent. Source-ID/URL or content-hash conflicts fail closed, and production import refuses before writing when the approved eligible count is zero.
+
+## ADR-018: Runtime workloads fail readiness when persistent dependencies drift
+
+Compose and Helm run migrations before application rollout, use PostgreSQL retrieval explicitly, isolate session Redis from general counters/broker state and deploy Celery Beat as a singleton scheduler. A PostgreSQL-backed API reports ready only at the exact migration head with required extensions and both Redis connections healthy. Runtime corpora are mounted read-only and never baked into the image.
+
+## ADR-019: Review evidence packages are atomic but not production approval
+
+An admin review package is one transaction and replay must exactly match its immutable record/content/evidence/source/safety fields. Queue priority favors second-review and safety work. Safe exports have a versioned deterministic digest and hashed rationales, but remain audit evidence only; they cannot set production status without a separately authorized signed governance bridge and real reviewer evidence.

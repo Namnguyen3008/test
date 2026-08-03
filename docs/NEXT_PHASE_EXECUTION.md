@@ -67,3 +67,7 @@ The highest-priority next action is persistent-runtime verification followed by 
 ## V4 supersession — 2026-08-03
 
 The persistent retrieval adapter, review workflow and guarded persistent embedding executor are now implemented in `345855e`, `367105f` and `0988fa2`. Continue from `docs/NEXT_PHASE_V4_EXECUTION.md`; this historical ledger is retained for append-only evidence. Live PostgreSQL/Redis, persistent import/backfill, governance approval and staging gates remain unresolved.
+
+## V5 supersession — 2026-08-03
+
+Mode C runtime remediation and current evidence are recorded in `docs/NEXT_PHASE_V5_EXECUTION.md`. Commit `fb4652f` fixes deployment wiring and adds real-service contracts, but local PostgreSQL/Redis, persistent import, live embedding smoke, restore and staging remain `NOT_RUN`.

@@ -40,3 +40,7 @@ docker compose exec api python -m vmec_data --help
 ```
 
 Do not mark infrastructure verified until these commands succeed against the real services.
+
+## V5 re-verification — 2026-08-03 14:15 Asia/Saigon
+
+The tools and listeners remain absent; Mode C was selected and no installation was attempted. Compose now includes migration ordering, PostgreSQL retrieval, separate session Redis and Celery Beat in commit `fb4652f`. The prior commands have not been rerun and remain `NOT_RUN`. Use the expanded command/evidence sequence in `docs/NEXT_PHASE_V5_EXECUTION.md`; include `migrate` and `scheduler` when collecting logs.

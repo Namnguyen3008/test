@@ -76,3 +76,30 @@ These omissions keep `INFRA_VERIFIED`, `EMBEDDING_BACKFILL_COMPLETE`, `DATA_APPR
 | Migration | `alembic heads`; `alembic upgrade head --sql` | PASS offline — one head `20260803_0008_persistent_import`, 42,796-byte SQL chain. Live application NOT RUN. |
 | Import refusal | `scripts/import_catalog_to_postgres.py ...` with persistent gate forced false | PASS — exit 2 before database connection; source catalog unchanged. |
 | Post-importer full regression | Ruff format/check, mypy, `pip check`, `pytest -q -rs` | PASS — 116 formatted files, 63 typed source files, 148 passed and 3 explicit skips (two PostgreSQL-gated, one POSIX-only). |
+
+## 2026-08-03 14:15 Asia/Saigon — V5 Mode C verification
+
+| Check | Command | Result |
+|---|---|---|
+| ZIP integrity and extraction policy | SHA-256 before/after plus pre-extraction entry validation | PASS — source hash unchanged; 8/8 entries passed traversal/root/ADS/symlink/reparse/type/duplicate/collision/containment checks. |
+| Environment truth | command/service/listener and environment-presence audit | Mode C — Docker/Compose, psql, redis-cli and Helm absent; ports 5432/6379 closed; runtime URLs/key/gates absent. No value printed. |
+| Migration graph | `python -m alembic heads`; `alembic upgrade head --sql` | PASS offline — one head `20260803_0008_persistent_import`; base-to-head SQL generated. Real migration is NOT RUN. |
+| Catalog projection | `CatalogProjection(...).plan()` against ignored catalog | PASS read-only — development 48,217/15,511/15,511 and review 3,657/528/528 candidate/eligible/chunk counts; source unchanged; no persistent write. |
+| Runtime wiring contracts | `pytest tests/test_security/test_runtime_wiring.py tests/test_security/test_container_hardening.py tests/test_api/test_readiness.py -q` | PASS — 11 tests for migration ordering, Redis isolation, scheduler, runtime data, Helm migration/probes/ingress and configurable approved manifest. Static evidence only. |
+| Reviewer hardening | `pytest tests/test_review_workflow.py -q` | PASS — 7 tests, including atomic rollback, immutable replay mismatch and safety/adjudication priority. No real review performed. |
+| Python format/lint/type | Ruff across `src tests services vmec_data apps migrations scripts`; mypy across source | PASS — 118 files formatted, lint clean, 63 typed source files. |
+| Full Python suite | `python -m pytest -q` | PASS — 156 passed, 6 skipped, one dependency deprecation warning. Five skips require PostgreSQL/Redis; one is POSIX-only. Skips are not counted as PASS. |
+| Web verification | lint, typecheck, Vitest, production build, `npm audit --audit-level=high` | PASS — 5 unit tests, all routes built, zero vulnerabilities. |
+| Browser E2E | `npm.cmd run test:e2e` | PASS — 3 development safe-adapter scenarios in 15.8 seconds. |
+| Manual browser/DevTools | local production web build + development API | PASS for local demo only — emergency warning rendered, chat POST returned HTTP 200, console warning/error count zero. Persistent/Gemini chain NOT RUN. |
+| Persistent runtime contracts | `pytest tests/integration -q -rs` | NOT RUN locally — tests are prepared for PostgreSQL extensions/head, persistent import/backfill, Redis sessions/round-robin and PostgreSQL booking race; missing services caused explicit skips. |
+| Secret scan | high-risk token-prefix scan of milestone paths | PASS — zero matches; local environment and secret files were not dumped. |
+
+### V5 explicitly NOT RUN
+
+- Docker Compose config/build/up/health/log and container vulnerability/SBOM checks.
+- Empty real PostgreSQL migration, development/review persistent import and resume reconciliation.
+- Live `gemini-embedding-2` plus `gemini-embedding-001` 768d smoke; full embedding backfill.
+- Persistent auth/booking/worker/grounded-agent restart/load/recovery suite.
+- Helm lint/template/install, backup restore drill, staging smoke/E2E/observability and rollback.
+- Human reviewer approval and signed production governance promotion.

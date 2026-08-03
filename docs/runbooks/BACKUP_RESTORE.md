@@ -60,3 +60,21 @@ dropdb "<isolated-restore-database>"
 ```
 
 Until a complete drill succeeds, keep `INFRA_VERIFIED=false` and `PRODUCTION_READY=false`.
+
+## Compose drill sequence
+
+The following sequence is prepared but was not run in the V5 Mode C environment. Use only a disposable restore database and an encrypted backup destination outside this repository.
+
+```powershell
+docker compose up -d postgres redis
+docker compose exec postgres pg_isready -U vmec -d vmec
+docker compose exec api alembic current
+docker compose exec postgres pg_dump --format=custom --compress=9 --no-owner --no-acl --file /tmp/vmec.dump vmec
+docker compose cp postgres:/tmp/vmec.dump "<secure-backup-path>\vmec.dump"
+Get-FileHash -Algorithm SHA256 -LiteralPath "<secure-backup-path>\vmec.dump"
+docker compose exec postgres createdb -U vmec vmec_restore_drill
+docker compose cp "<secure-backup-path>\vmec.dump" postgres:/tmp/vmec-restore.dump
+docker compose exec postgres pg_restore --exit-on-error --no-owner --no-acl -U vmec --dbname vmec_restore_drill /tmp/vmec-restore.dump
+```
+
+Point an isolated validation process at `vmec_restore_drill`; do not change the running API database in place. Capture pre-backup and post-restore aggregate counts for releases, records, chunks, source joins, both vector spaces, users, appointments/events, outbox/reminders and audit events. Require exact reconciliation, migration head `20260803_0008_persistent_import`, zero broken citation links, successful auth/session/booking/retrieval smoke and PHI-safe logs. Only then may `BACKUP_RESTORE_VERIFIED=true` be considered.

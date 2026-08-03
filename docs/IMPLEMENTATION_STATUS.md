@@ -175,3 +175,26 @@ EMBEDDING_BACKFILL_COMPLETE=false
 DATA_APPROVED=false
 PRODUCTION_READY=false
 ```
+
+## V5 Mode C execution update — 2026-08-03 14:15 Asia/Saigon
+
+This append-only update supersedes earlier runtime-wiring gaps but does not change any persistent/live readiness claim. The V5 archive was safely extracted without changing its SHA-256 or source file. Runtime audit found no Docker/Compose, PostgreSQL CLI/service, Redis CLI/service, Helm, persistent URLs, Gemini credential or backfill gates; no system software was installed.
+
+Commit `fb4652f` adds the feasible Mode C remediation: migration-ordered Compose, explicit PostgreSQL retrieval, distinct Redis session wiring, Celery Beat, dependency-aware readiness, Helm migration/scheduler/TLS/runtime-data wiring, PostgreSQL+Redis CI contracts, persistent booking/session/round-robin tests, deterministic reviewer evidence and atomic/tamper-detecting package import. No migration was needed; the single head remains `20260803_0008_persistent_import`.
+
+Read-only projection reconfirmed development `48,217 candidates / 15,511 eligible` and review `3,657 / 528`; neither was written to PostgreSQL. Full Python regression is `156 passed, 6 skipped`; five skips are explicit missing PostgreSQL/Redis gates and one is platform-specific. Web lint/type/5 unit/build/audit and three Playwright scenarios pass. Manual browser validation observed an emergency short-circuit, HTTP 200 from the local development API and no console warnings/errors. This safe-adapter evidence is not `REAL_STACK_E2E_COMPLETE`.
+
+Remaining hard blockers are real PostgreSQL/pgvector and Redis activation, persistent imports, two live 768d embedding smoke calls, explicitly authorized full backfill, restore drill, staging deploy and real reviewer/governance approval. Exact continuation commands are in `docs/NEXT_PHASE_V5_EXECUTION.md`.
+
+```text
+CODE_COMPLETE=true
+INFRA_VERIFIED=false
+PERSISTENT_IMPORT_COMPLETE=false
+EMBEDDING_SMOKE_COMPLETE=false
+EMBEDDING_BACKFILL_COMPLETE=false
+REAL_STACK_E2E_COMPLETE=false
+BACKUP_RESTORE_VERIFIED=false
+DATA_APPROVED=false
+STAGING_VERIFIED=false
+PRODUCTION_READY=false
+```

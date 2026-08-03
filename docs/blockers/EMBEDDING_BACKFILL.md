@@ -15,3 +15,7 @@ Commit `0988fa2` adds migration head `20260803_0007_embedding_backfill` and `scr
 The live smoke and full jobs remain NOT RUN because PostgreSQL/pgvector, a runtime Gemini credential and authorization gates are unavailable. This section does not change `EMBEDDING_BACKFILL_COMPLETE=false`.
 
 Commit `5b4a8c0` subsequently adds the guarded persistent catalog import and advances the required head to `20260803_0008_persistent_import`. Run the import command in `docs/runbooks/EMBEDDING_REBUILD.md` before smoke backfill. The code path is tested offline; persistent import itself is still NOT RUN.
+
+## V5 update — 2026-08-03 14:15 Asia/Saigon
+
+`GEMINI_API_KEY`, persistent service URLs and both full-backfill gates were absent from the process environment. No provider call was made. Development planning reconfirmed 15,511 eligible chunks; review planning found 528 eligible chunks. Live dual-model 768-dimensional smoke remains `NOT_RUN`, and full backfill remains both unauthorized and infrastructure-blocked.

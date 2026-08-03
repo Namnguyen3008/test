@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     app_host: str = "127.0.0.1"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    otel_service_name: str = "vmec-api"
+    otel_exporter_otlp_traces_endpoint: str = ""
 
     # LLM
     gemini_api_key: SecretStr = SecretStr("")

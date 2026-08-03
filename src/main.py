@@ -9,6 +9,7 @@ from src.api.auth_routes import router as auth_router
 from src.api.routes import router
 from src.booking.api import router as booking_router
 from src.config import get_settings
+from src.observability import configure_observability
 from src.security import SecurityHeadersMiddleware
 from src.services.emergency import (
     DataMode,
@@ -83,6 +84,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(booking_router, prefix="/api/v1")
+configure_observability(app, settings)
 
 
 @app.get("/health")

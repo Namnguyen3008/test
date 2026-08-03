@@ -20,3 +20,10 @@ The four source artifacts are ignored, hashed, streamed, and never modified. Dev
 
 Emergency screening occurs before retrieval, model calls, memory, or booking. Model telemetry stores identifiers, purpose, model, timing, attempt status, and coded failure reasons only—never prompts, raw symptoms, authorization data, cookies, or secrets.
 
+## ADR-006: Production corpus is an organizational gate
+
+The supplied inventory reports zero production-ready rows. Code therefore permits development/review imports and rejects production mode before persistence. No automated transformation may manufacture clinical approval.
+
+## ADR-007: Frontend dependency remediation
+
+The web app uses Next.js 16.2.12 and explicit patched PostCSS/Sharp overrides because the upstream Next package manifest still pins versions covered by August 2026 advisories. `npm audit` reports zero vulnerabilities and the clean build/E2E suite passes. Remove overrides when an upstream Next release adopts patched dependency ranges.

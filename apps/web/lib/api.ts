@@ -9,6 +9,13 @@ export interface Appointment {
 }
 export interface Slot { id: string; specialty_id: string | null; facility_id: string | null; practitioner_id: string | null; starts_at: string; ends_at: string }
 export interface AuditEvent { id: number; actor_id: string | null; action: string; target_type: string; target_id: string | null; outcome: string; occurred_at: string }
+export interface ReviewItem { row_id: string; table: string; content_preview: string; canonical_status: string; review_status: string; source_ids: string[] }
+export interface Diagnostics {
+  data_mode: string; catalog_available: boolean; release_id: string; release_status: string;
+  imported_rows: number; canonical_sources: number; emergency_rules: Record<string, unknown>;
+  gemini_models: string[]; embedding_models: string[]; embedding_dimensions: number;
+  gemini_key_configured: boolean; full_embedding_backfill_permitted: boolean; production_approved: boolean;
+}
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message) }
@@ -49,6 +56,8 @@ export const api = {
   staffQueue: () => request<{ items: Appointment[] }>("/booking/staff/queue"),
   staffDecision: (id: string, approve: boolean) => request<Appointment>(`/booking/staff/appointments/${id}/decision`, { method: "POST", headers: mutationHeaders(), body: JSON.stringify({ approve }) }),
   audit: () => request<AuditEvent[]>("/admin/audit?limit=100"),
+  reviewQueue: () => request<{ items: ReviewItem[]; read_only: boolean }>("/review/items?limit=50"),
+  diagnostics: () => request<Diagnostics>("/admin/diagnostics"),
 };
 
 export function friendlyError(error: unknown): string {

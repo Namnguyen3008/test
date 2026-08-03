@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.auth_routes import get_auth_rate_limiter, get_session_store
 from src.api.auth_routes import router as auth_router
+from src.api.operations_routes import router as operations_router
 from src.api.routes import router
 from src.booking.api import router as booking_router
 from src.config import get_settings
@@ -84,6 +85,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(booking_router, prefix="/api/v1")
+app.include_router(operations_router, prefix="/api/v1")
 configure_observability(app, settings)
 
 

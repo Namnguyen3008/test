@@ -11,9 +11,22 @@ test("patient emergency flow short-circuits routine booking", async ({ page }) =
   await expect(page.getByRole("button", { name: "Xem chuyên khoa và lịch trống" })).toHaveCount(0);
 });
 
-test("operations page exposes no raw patient identity", async ({ page }) => {
+test("operations portal denies unauthenticated access without exposing patient identity", async ({ page }) => {
   await page.goto("/operations");
   await expect(page.getByRole("heading", { name: "Điều phối an toàn" })).toBeVisible();
-  await expect(page.getByText("BN •••• 291")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Không thể mở hàng đợi" })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Nguyễn Văn");
+});
+
+test("patient appointment portal renders real API empty states", async ({ page }) => {
+  await page.route("**/api/v1/booking/appointments", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) }),
+  );
+  await page.route("**/api/v1/booking/availability**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) }),
+  );
+  await page.goto("/appointments");
+  await expect(page.getByRole("heading", { name: "Hành trình khám rõ ràng" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Chưa có lịch hẹn" })).toBeVisible();
+  await expect(page.getByText("Hiện chưa có lịch trống phù hợp.")).toBeVisible();
 });

@@ -107,7 +107,7 @@ def test_validated_snapshot_can_be_activated_and_reset() -> None:
     try:
         result = screen_emergency("Khó thở dữ dội và không nói được trọn câu")
         assert result.emergency
-        assert result.ruleset_version == ruleset.version
+        assert result.ruleset_version == f"{ruleset.version}+seed-v1"
     finally:
         reset_emergency_rules()
     assert screen_emergency("Bất tỉnh").ruleset_version == "seed-v1"

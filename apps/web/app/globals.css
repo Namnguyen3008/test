@@ -32,3 +32,21 @@ table { width:100%; border-collapse:collapse; }th,td { padding:17px 20px; text-a
 .srOnly { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
 button,a,textarea { outline-offset:3px; }:focus-visible { outline:3px solid #52a994; }
 @media(max-width:760px){ .topbar { padding:0 16px; }.topbar nav a:nth-child(2){display:none}.topbar nav{gap:14px}.hero{grid-template-columns:1fr;gap:22px}.conversation{padding:24px 16px}.composer{flex-direction:column}.composer button{min-height:48px}.trustGrid,.metricGrid{grid-template-columns:1fr}.emptyState{padding:40px 20px}.tableCard{overflow-x:auto}h1{font-size:44px} }
+.sessionBar { display:flex; align-items:center; gap:10px; font-size:12px; color:var(--muted); }
+.sessionBar span { max-width:170px; overflow:hidden; text-overflow:ellipsis; }
+.sessionBar button,.sessionLink { border:1px solid var(--line); background:#fff; padding:8px 11px; border-radius:9px; cursor:pointer; }
+.narrowPage { max-width:620px; }
+.formCard { display:grid; gap:10px; padding:28px; background:#fff; border:1px solid var(--line); border-radius:18px; }
+.formCard label { font-weight:700; margin-top:6px; }
+.formCard input { min-height:46px; border:1px solid #b8c9c0; border-radius:10px; padding:10px 12px; font:inherit; }
+.formCard>button,.stateCard button,.slotCard button,.appointmentCard button,.inlineActions button { border:0; min-height:42px; padding:9px 14px; border-radius:9px; background:var(--teal); color:#fff; font-weight:700; cursor:pointer; }
+.stateCard { margin:28px 0; padding:28px; background:#fff; border:1px solid var(--line); border-radius:16px; }
+.stateCard.forbidden { border-color:#ebbbb5; background:#fff5f3; }.stateCard.degraded { border-color:#e6d188; background:#fffae9; }
+.stateCard a { display:inline-block; margin-top:10px; color:var(--teal); text-decoration:underline; }
+.cardGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:16px; margin:18px 0 42px; }
+.appointmentCard,.slotCard { display:flex; flex-direction:column; justify-content:space-between; min-height:180px; padding:22px; background:#fff; border:1px solid var(--line); border-radius:14px; }
+.appointmentCard h3,.slotCard h3 { margin:18px 0 7px; }.appointmentCard p,.slotCard p { color:var(--muted); }
+.cardActions,.inlineActions { display:flex; gap:8px; flex-wrap:wrap; }.secondaryButton { color:var(--ink)!important; background:#eef2ef!important; }
+.tableScroll { overflow-x:auto; }.tableCard .emptyState { margin:20px; }
+@media(max-width:900px){ .topbar { flex-wrap:wrap; height:auto; min-height:72px; gap:10px; padding-top:10px; padding-bottom:10px; }.sessionBar span { display:none; } }
+@media(max-width:560px){ .topbar nav a:nth-child(3){display:none}.sessionLink{font-size:12px}.page,main{padding-left:16px;padding-right:16px}.formCard{padding:20px}.inlineActions{min-width:190px} }

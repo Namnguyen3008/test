@@ -205,6 +205,15 @@ def screen_emergency(text: str) -> EmergencyResult:
 def activate_emergency_rules(ruleset: VersionedEmergencyRules) -> None:
     """Atomically activate a validated snapshot without mutating its rules."""
     global _ACTIVE_DETECTOR
+    if ruleset.data_mode != "production":
+        existing_ids = {rule.rule_id for rule in ruleset.rules}
+        ruleset = VersionedEmergencyRules(
+            version=f"{ruleset.version}+seed-v1",
+            data_mode=ruleset.data_mode,
+            rules=ruleset.rules + tuple(rule for rule in _SEED_RULES.rules if rule.rule_id not in existing_ids),
+            hard_negatives=ruleset.hard_negatives,
+            approved_rule_count=ruleset.approved_rule_count,
+        )
     _ACTIVE_DETECTOR = EmergencyDetector(ruleset)
 
 

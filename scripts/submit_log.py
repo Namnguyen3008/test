@@ -9,6 +9,7 @@ After a successful submit, the live log is rotated:
 
 If the POST fails, the pending file is restored so nothing is lost.
 """
+
 import json
 import os
 import shutil
@@ -26,15 +27,18 @@ except ImportError:
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
 
 SERVER_URL = os.environ.get("AI_LOG_SERVER", "")
 API_KEY = os.environ.get("AI_LOG_API_KEY", "")
-EXTERNAL_SUBMISSION_ENABLED = os.environ.get(
-    "VMEC_AI_LOG_EXTERNAL_SUBMISSION_ENABLED", "false"
-).strip().lower() in {"1", "true", "yes"}
+EXTERNAL_SUBMISSION_ENABLED = os.environ.get("VMEC_AI_LOG_EXTERNAL_SUBMISSION_ENABLED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 LOG_DIR = Path(os.environ.get("AI_LOG_DIR", ".ai-log"))
 LOG_FILE = LOG_DIR / "session.jsonl"
 ARCHIVE_DIR = LOG_DIR / "archive"

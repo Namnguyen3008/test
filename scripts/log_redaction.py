@@ -70,8 +70,4 @@ def metadata_only_entry(value: dict[str, Any]) -> dict[str, Any]:
     cannot be made safe using credential regular expressions. Producers must
     persist only this small, non-user-content metadata schema.
     """
-    return {
-        key: sanitize_value(item)
-        for key, item in value.items()
-        if key in _METADATA_KEYS
-    }
+    return {key: sanitize_value(item) for key, item in value.items() if key in _METADATA_KEYS}

@@ -36,3 +36,4 @@ async def test_emergency_short_circuits_gemini(monkeypatch):
     assert result["emergency"] is True
     assert "115" in result["response"]
     assert result["metadata"]["routine_booking_blocked"] is True
+    assert result["metadata"]["emergency_ruleset_version"] == "seed-v1"

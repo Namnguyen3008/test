@@ -174,7 +174,7 @@ class GeminiRoundRobin:
             self._client.aio.models.generate_content(
                 model=model,
                 contents=prompt,
-                config=types.GenerateContentConfig(max_output_tokens=2048, temperature=0.1),
+                config=types.GenerateContentConfig(max_output_tokens=2048),
             ),
             timeout=self._timeout,
         )
@@ -215,7 +215,20 @@ class GeminiRoundRobin:
     async def generate(self, prompt: str, *, purpose: str = "response") -> GeminiResult:
         call_id = str(uuid.uuid4())
         started = time.monotonic()
-        primary, alternate = await self._select_models()
+        try:
+            primary, alternate = await self._select_models()
+        except Exception as exc:
+            event = ModelTelemetry(
+                call_id,
+                purpose,
+                "unavailable",
+                (),
+                "safe_handoff",
+                type(exc).__name__,
+                int((time.monotonic() - started) * 1000),
+            )
+            await self._emit(event)
+            return GeminiResult(SAFE_HANDOFF_MESSAGE, "", False, True, call_id, event)
         attempted: list[str] = []
         failure_code: str | None = None
         for model_index, model in enumerate((primary, alternate)):

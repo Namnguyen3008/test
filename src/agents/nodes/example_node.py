@@ -16,7 +16,12 @@ async def emergency_node(state: AgentState) -> dict:
     return {
         "emergency": True,
         "response": result.action,
-        "metadata": {"emergency_rule_ids": result.rule_ids, "routine_booking_blocked": True},
+        "metadata": {
+            "emergency_rule_ids": result.rule_ids,
+            "emergency_ruleset_version": result.ruleset_version,
+            "emergency_data_mode": result.data_mode,
+            "routine_booking_blocked": True,
+        },
     }
 
 

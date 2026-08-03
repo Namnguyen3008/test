@@ -31,6 +31,11 @@ class FakeClient:
         self.aio = SimpleNamespace(models=models)
 
 
+class UnavailableRedis:
+    async def incr(self, key):
+        raise ConnectionError("redis unavailable")
+
+
 @pytest.mark.asyncio
 async def test_round_robin_uses_only_approved_models():
     models = FakeModels()
@@ -127,3 +132,24 @@ async def test_telemetry_is_allowlisted_and_contains_no_prompt():
     serialized = str(result.telemetry.safe_dict())
     assert prompt not in serialized
     assert "0900000000" not in serialized
+
+
+@pytest.mark.asyncio
+async def test_redis_outage_fails_closed_without_calling_a_model_or_leaking_prompt():
+    models = FakeModels()
+    events = []
+    router = GeminiRoundRobin(
+        "test-key",
+        client=FakeClient(models),
+        redis=UnavailableRedis(),
+        telemetry_sink=events.append,
+    )
+    prompt = "sensitive patient symptom"
+
+    result = await router.generate(prompt, purpose="routing")
+
+    assert result.handoff
+    assert result.text == SAFE_HANDOFF_MESSAGE
+    assert models.calls == []
+    assert events[0].selected_model == "unavailable"
+    assert prompt not in str(events[0].safe_dict())

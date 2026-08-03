@@ -11,6 +11,7 @@ from services.retrieval import (
     EmbeddingRecord,
     HybridRetriever,
     InMemoryVectorIndex,
+    JobState,
     RetrievalMode,
     canonical_chunks,
 )
@@ -72,6 +73,29 @@ async def test_embedding_jobs_resume_without_duplicate_embedding() -> None:
     assert completed == 1
     assert calls == ["first", "second", "second"]
     assert len(index) == 2
+
+
+@pytest.mark.asyncio
+async def test_repeated_embedding_failure_is_quarantined_with_phi_safe_diagnostics() -> None:
+    async def embed(text, space):
+        raise TimeoutError("upstream unavailable")
+
+    record = EmbeddingRecord("one", "sensitive text must not enter diagnostics", hashlib.sha256(b"one").hexdigest())
+    ledger = EmbeddingJobLedger()
+    pipeline = EmbeddingPipeline(ledger, embed, max_attempts=2)
+    index = InMemoryVectorIndex(PRIMARY_EMBEDDING_SPACE)
+
+    for _ in range(2):
+        with pytest.raises(TimeoutError):
+            await pipeline.build([record], space=PRIMARY_EMBEDDING_SPACE, index=index)
+    assert await pipeline.build([record], space=PRIMARY_EMBEDDING_SPACE, index=index) == 0
+
+    key = ledger.key(PRIMARY_EMBEDDING_SPACE, record.content_hash)
+    diagnostics = ledger.diagnostics()
+    assert ledger.attempts(key) == 2
+    assert diagnostics.quarantined == 1
+    assert diagnostics.attempts == 2
+    assert JobState.QUARANTINED.value not in record.text
 
 
 @pytest.mark.asyncio

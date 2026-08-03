@@ -2,7 +2,17 @@
 
 from .chunking import CanonicalChunk, canonical_chunks
 from .index import InMemoryVectorIndex, VectorHit
-from .jobs import EmbeddingJobLedger, EmbeddingPipeline, EmbeddingRecord, JobKey
+from .jobs import EmbeddingJobLedger, EmbeddingPipeline, EmbeddingRecord, JobDiagnostics, JobKey, JobState
+from .registry import (
+    BackfillPlan,
+    Citation,
+    CitationRegistry,
+    EligibilityDecision,
+    EligibilityReason,
+    RetrievalCandidate,
+    plan_embedding_backfill,
+    retrieval_eligibility,
+)
 from .service import HybridRetriever, RetrievalMode, RetrievalResponse
 from .spaces import (
     EMBEDDING_DIMENSIONS,
@@ -20,15 +30,25 @@ __all__ = [
     "PRIMARY_EMBEDDING_SPACE",
     "TEXT_FALLBACK_EMBEDDING_MODEL",
     "CanonicalChunk",
+    "BackfillPlan",
+    "Citation",
+    "CitationRegistry",
     "EmbeddingJobLedger",
     "EmbeddingPipeline",
     "EmbeddingRecord",
     "EmbeddingSpace",
+    "EligibilityDecision",
+    "EligibilityReason",
     "HybridRetriever",
     "InMemoryVectorIndex",
     "JobKey",
+    "JobDiagnostics",
+    "JobState",
     "RetrievalMode",
+    "RetrievalCandidate",
     "RetrievalResponse",
     "VectorHit",
     "canonical_chunks",
+    "plan_embedding_backfill",
+    "retrieval_eligibility",
 ]

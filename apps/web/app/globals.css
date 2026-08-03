@@ -40,6 +40,7 @@ button,a,textarea { outline-offset:3px; }:focus-visible { outline:3px solid #52a
 .formCard label { font-weight:700; margin-top:6px; }
 .formCard input { min-height:46px; border:1px solid #b8c9c0; border-radius:10px; padding:10px 12px; font:inherit; }
 .formCard>button,.stateCard button,.slotCard button,.appointmentCard button,.inlineActions button { border:0; min-height:42px; padding:9px 14px; border-radius:9px; background:var(--teal); color:#fff; font-weight:700; cursor:pointer; }
+.reviewActions { display:grid; gap:10px; margin-top:18px; }.reviewActions label { font-weight:700; }.reviewActions textarea { min-height:110px; resize:vertical; border:1px solid #cbd7d1; border-radius:10px; padding:12px; font:inherit; }.inlineActions { display:flex; flex-wrap:wrap; gap:8px; }
 .stateCard { margin:28px 0; padding:28px; background:#fff; border:1px solid var(--line); border-radius:16px; }
 .stateCard.forbidden { border-color:#ebbbb5; background:#fff5f3; }.stateCard.degraded { border-color:#e6d188; background:#fffae9; }
 .stateCard a { display:inline-block; margin-top:10px; color:var(--teal); text-decoration:underline; }

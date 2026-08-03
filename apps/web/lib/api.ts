@@ -10,6 +10,11 @@ export interface Appointment {
 export interface Slot { id: string; specialty_id: string | null; facility_id: string | null; practitioner_id: string | null; starts_at: string; ends_at: string }
 export interface AuditEvent { id: number; actor_id: string | null; action: string; target_type: string; target_id: string | null; outcome: string; occurred_at: string }
 export interface ReviewItem { row_id: string; table: string; content_preview: string; canonical_status: string; review_status: string; source_ids: string[] }
+export interface WorkflowReviewItem {
+  id: string; release_id: string; origin_table: string; origin_row_id: string; content_hash: string;
+  evidence_summary: string; source_ids: string[]; safety_critical: boolean; required_reviews: number;
+  status: string; claimed_by: string | null; claim_expires_at: string | null; version: number;
+}
 export interface Diagnostics {
   data_mode: string; catalog_available: boolean; release_id: string; release_status: string;
   imported_rows: number; canonical_sources: number; emergency_rules: Record<string, unknown>;
@@ -57,6 +62,10 @@ export const api = {
   staffDecision: (id: string, approve: boolean) => request<Appointment>(`/booking/staff/appointments/${id}/decision`, { method: "POST", headers: mutationHeaders(), body: JSON.stringify({ approve }) }),
   audit: () => request<AuditEvent[]>("/admin/audit?limit=100"),
   reviewQueue: () => request<{ items: ReviewItem[]; read_only: boolean }>("/review/items?limit=50"),
+  workflowReviewQueue: () => request<WorkflowReviewItem[]>("/review/workflow/items"),
+  claimReview: (id: string, version: number) => request<WorkflowReviewItem>(`/review/workflow/items/${id}/claim`, { method: "POST", body: JSON.stringify({ expected_version: version, ttl_seconds: 900 }) }),
+  releaseReview: (id: string, version: number) => request<WorkflowReviewItem>(`/review/workflow/items/${id}/release`, { method: "POST", body: JSON.stringify({ expected_version: version }) }),
+  decideReview: (id: string, version: number, decision: "APPROVE" | "REJECT" | "REQUEST_CHANGES", rationale: string) => request<WorkflowReviewItem>(`/review/workflow/items/${id}/decision`, { method: "POST", body: JSON.stringify({ expected_version: version, decision, rationale }) }),
   diagnostics: () => request<Diagnostics>("/admin/diagnostics"),
 };
 

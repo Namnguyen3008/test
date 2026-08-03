@@ -142,7 +142,7 @@ roles, grants, RLS, safe reporting views, and source/audit immutability. Compose
 real dedicated-login integration tests are prepared. Static proof is complete; real PostgreSQL enforcement remains
 unverified because all persistent runtimes and URLs are absent.
 
-Offline regression: Ruff PASS, focused mypy PASS, full pytest `181 passed, 16 skipped`. The 16 skips are explicitly
+Offline regression: Ruff PASS, focused mypy PASS, full pytest `182 passed, 16 skipped`. The 16 skips are explicitly
 unavailable PostgreSQL/Redis or platform contracts and are not PASS. Alembic has one head and renders the full chain
 offline. The ignored stale review draft was regenerated deterministically (528 eligible rows; SHA-256
 `82678883780c91697f704b4155ea10ed12ddd48160fef4eaa3b4e09ad8df7d0a`) and remains a draft, not approval.

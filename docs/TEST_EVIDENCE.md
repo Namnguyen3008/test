@@ -133,7 +133,7 @@ No signed final manifest or receipt exists, so `GOVERNANCE_MANIFEST_VERIFIED`, `
 | V6 targeted regression | PASS — 17 tests before V7 implementation; governance bridge not rebuilt. |
 | Ruff | PASS — repository check clean after V7 implementation. |
 | Focused mypy | PASS — 13 changed source files, no issues. |
-| Full Python suite | PASS — `181 passed, 16 skipped`, one deprecation warning. Skips are not PASS. |
+| Full Python suite | PASS — `182 passed, 16 skipped`, one deprecation warning. Skips are not PASS. |
 | Signed lifecycle unit tests | PASS — valid domain/capability, tamper, cross-capability, time, timezone and two-reviewer clinical-scope cases. |
 | Least-privilege static contract | PASS — separate credentials, role attributes, grants/RLS and immutability migration content. |
 | Alembic graph | PASS offline — one head `20260803_0010_signed_lifecycle_least_privilege`; full SQL emitted. Real application NOT RUN. |

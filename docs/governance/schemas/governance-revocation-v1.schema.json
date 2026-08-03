@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vmec.example.invalid/schemas/governance-revocation-v1.schema.json",
+  "title": "VMEC governance revocation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "artifact_id", "project_id", "route_name", "expected_generation", "reason", "effective_at", "owner_authorization", "issued_at", "expires_at", "signature", "target", "emergency_withdrawal"],
+  "properties": {
+    "schema_version": {"const": "vmec.governance-revocation.v1"},
+    "artifact_id": {"type": "string", "minLength": 8},
+    "project_id": {"const": "VMEC-01"},
+    "route_name": {"const": "vmec-production-v1"},
+    "expected_generation": {"type": "integer", "minimum": 1},
+    "reason": {"type": "string", "minLength": 8},
+    "effective_at": {"type": "string", "format": "date-time"},
+    "owner_authorization": {"$ref": "governance-supersession-v1.schema.json#/$defs/owner"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": ["string", "null"], "format": "date-time"},
+    "signature": {"$ref": "governance-supersession-v1.schema.json#/$defs/signature"},
+    "target": {"$ref": "governance-supersession-v1.schema.json#/$defs/binding"},
+    "emergency_withdrawal": {"const": true}
+  }
+}

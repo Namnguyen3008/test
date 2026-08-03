@@ -97,3 +97,19 @@ Trust-key revocation blocks new operations. A committed receipt and row audit re
 schema has no signed supersession/revocation artifact, so the implementation rejects replacement rather than
 inventing an unsigned demotion path. A future schema must define explicit authorization and audit semantics before
 release supersession is enabled.
+
+## ADR-023: Production routing is a signed generation pointer
+
+V7 supersedes ADR-022's deferred lifecycle gap. Concrete production releases remain immutable. The stable
+`vmec-production-v1` name resolves through a PostgreSQL route with a monotonically increasing generation. A
+domain-separated, capability-scoped Ed25519 supersession atomically moves the pointer to a separately promoted
+release; emergency revocation clears routability without deleting history. Restoration is another signed lifecycle
+operation, never an unsigned database edit.
+
+## ADR-024: PostgreSQL credentials are capability identities
+
+Migration, API, worker, importer, analytics, clinical reporting, governance, and backup use distinct NOLOGIN group
+roles with externally provisioned login members. Grants, RLS, safe reporting views, completed-release immutability,
+and append-only triggers enforce boundaries in PostgreSQL. The migration owns grants but never creates passwords.
+Runtime services must not connect as an object owner; static checks are preparation, while dedicated-login real DB
+tests are required before the least-privilege gate can pass.

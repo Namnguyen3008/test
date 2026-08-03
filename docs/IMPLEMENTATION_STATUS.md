@@ -124,6 +124,50 @@ DATA_APPROVED=false
 PRODUCTION_READY=false
 ```
 
+## V7 final-production code update — 2026-08-03 16:37 Asia/Saigon
+
+This append-only entry supersedes V6's signed lifecycle and least-privilege code gaps, but not its real-runtime or
+human-approval blockers. V7 archive extraction preserved source SHA-256
+`746d2cd302d44fe6ed449319ec2a38ea4f80afa2bacadcde2a1bf7ba5f0dda1d`. V6 targeted governance regression passed,
+so the bridge was extended rather than rebuilt.
+
+Commit `6756667` introduces signed supersession/revocation with distinct Ed25519 domains/capabilities, immutable
+artifact and transition audit, monotonically versioned active route, atomic fail-closed revocation, candidate release
+promotion, route-aware production retrieval/embedding, cryptographic startup plus DB binding, completed-release
+immutability, and replay/tamper/stale-generation refusal. Migration head is now
+`20260803_0010_signed_lifecycle_least_privilege`.
+
+The same migration creates separate migration/API/worker/importer/analytics/clinical/governance/backup capability
+roles, grants, RLS, safe reporting views, and source/audit immutability. Compose/Helm credentials are separated and
+real dedicated-login integration tests are prepared. Static proof is complete; real PostgreSQL enforcement remains
+unverified because all persistent runtimes and URLs are absent.
+
+Offline regression: Ruff PASS, focused mypy PASS, full pytest `181 passed, 16 skipped`. The 16 skips are explicitly
+unavailable PostgreSQL/Redis or platform contracts and are not PASS. Alembic has one head and renders the full chain
+offline. The ignored stale review draft was regenerated deterministically (528 eligible rows; SHA-256
+`82678883780c91697f704b4155ea10ed12ddd48160fef4eaa3b4e09ad8df7d0a`) and remains a draft, not approval.
+
+```text
+CODE_COMPLETE=true
+INFRA_VERIFIED=false
+PERSISTENT_IMPORT_COMPLETE=false
+GOVERNANCE_BRIDGE_COMPLETE=true
+GOVERNANCE_MANIFEST_VERIFIED=false
+DATA_PROMOTION_COMPLETE=false
+SUPERSESSION_REVOCATION_COMPLETE=false
+DATABASE_LEAST_PRIVILEGE_VERIFIED=false
+EMBEDDING_SMOKE_COMPLETE=false
+EMBEDDING_BACKFILL_COMPLETE=false
+REAL_STACK_E2E_COMPLETE=false
+SECURITY_LOAD_RESILIENCE_COMPLETE=false
+BACKUP_RESTORE_VERIFIED=false
+DATA_APPROVED=false
+STAGING_VERIFIED=false
+PRODUCTION_CUTOVER_COMPLETE=false
+OPERATIONS_HANDOVER_COMPLETE=false
+PRODUCTION_READY=false
+```
+
 ### V4 R3 addendum — 2026-08-03 12:05 Asia/Saigon
 
 `5b4a8c0` adds the fail-closed persistent catalog importer and migration `20260803_0008_persistent_import` (new single head). The importer reads SQLite with `mode=ro`, stores no unallowlisted payload fields, preserves canonical source mapping/content hashes, checkpoints batches and produces zero duplicate persistent identities on resume. Its production path refuses before persistence when eligible approved count is zero.
@@ -199,6 +243,35 @@ STAGING_VERIFIED=false
 PRODUCTION_READY=false
 ```
 
+## V7 authoritative closing state — 2026-08-03 16:40 Asia/Saigon
+
+The detailed V7 entry above was inserted while preserving older evidence. This final append is the authoritative
+chronological state after commit `6756667` and final local verification. Web audit/lint/typecheck, five unit tests,
+production build, and three Playwright safe-adapter E2E scenarios pass. In-app browser inspection confirmed the
+development safety banner and accessible portal structure with no console warning/error; it is not real-stack proof.
+See `docs/NEXT_PHASE_V7_EXECUTION.md` and `docs/blockers/V7_EXTERNAL_PRODUCTION_INPUTS.md`.
+
+```text
+CODE_COMPLETE=true
+INFRA_VERIFIED=false
+PERSISTENT_IMPORT_COMPLETE=false
+GOVERNANCE_BRIDGE_COMPLETE=true
+GOVERNANCE_MANIFEST_VERIFIED=false
+DATA_PROMOTION_COMPLETE=false
+SUPERSESSION_REVOCATION_COMPLETE=false
+DATABASE_LEAST_PRIVILEGE_VERIFIED=false
+EMBEDDING_SMOKE_COMPLETE=false
+EMBEDDING_BACKFILL_COMPLETE=false
+REAL_STACK_E2E_COMPLETE=false
+SECURITY_LOAD_RESILIENCE_COMPLETE=false
+BACKUP_RESTORE_VERIFIED=false
+DATA_APPROVED=false
+STAGING_VERIFIED=false
+PRODUCTION_CUTOVER_COMPLETE=false
+OPERATIONS_HANDOVER_COMPLETE=false
+PRODUCTION_READY=false
+```
+
 ## V6 signed governance update — 2026-08-03 15:42 Asia/Saigon
 
 This append-only update adds a fail-closed signed governance bridge and migration
@@ -235,5 +308,31 @@ REAL_STACK_E2E_COMPLETE=false
 BACKUP_RESTORE_VERIFIED=false
 DATA_APPROVED=false
 STAGING_VERIFIED=false
+PRODUCTION_READY=false
+```
+
+## V7 final authoritative state — 2026-08-03 16:41 Asia/Saigon
+
+V7 code is committed at `6756667`; final local regression is recorded in `docs/TEST_EVIDENCE.md`. Older V6 evidence
+above remains historical. Real signed artifacts and the real infrastructure gates listed below were unavailable.
+
+```text
+CODE_COMPLETE=true
+INFRA_VERIFIED=false
+PERSISTENT_IMPORT_COMPLETE=false
+GOVERNANCE_BRIDGE_COMPLETE=true
+GOVERNANCE_MANIFEST_VERIFIED=false
+DATA_PROMOTION_COMPLETE=false
+SUPERSESSION_REVOCATION_COMPLETE=false
+DATABASE_LEAST_PRIVILEGE_VERIFIED=false
+EMBEDDING_SMOKE_COMPLETE=false
+EMBEDDING_BACKFILL_COMPLETE=false
+REAL_STACK_E2E_COMPLETE=false
+SECURITY_LOAD_RESILIENCE_COMPLETE=false
+BACKUP_RESTORE_VERIFIED=false
+DATA_APPROVED=false
+STAGING_VERIFIED=false
+PRODUCTION_CUTOVER_COMPLETE=false
+OPERATIONS_HANDOVER_COMPLETE=false
 PRODUCTION_READY=false
 ```

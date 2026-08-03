@@ -124,3 +124,29 @@ These omissions keep `INFRA_VERIFIED`, `EMBEDDING_BACKFILL_COMPLETE`, `DATA_APPR
 No environment values, private keys, reviewer metadata, raw clinical content or live provider secrets were printed.
 No signed final manifest or receipt exists, so `GOVERNANCE_MANIFEST_VERIFIED`, `DATA_PROMOTION_COMPLETE` and
 `DATA_APPROVED` remain false.
+
+## 2026-08-03 16:37 Asia/Saigon — V7 verification
+
+| Check | Result |
+|---|---|
+| Safe V7 extraction | PASS — 9 entries validated/extracted under ignored `.codex/plans`; source ZIP hash unchanged. |
+| V6 targeted regression | PASS — 17 tests before V7 implementation; governance bridge not rebuilt. |
+| Ruff | PASS — repository check clean after V7 implementation. |
+| Focused mypy | PASS — 13 changed source files, no issues. |
+| Full Python suite | PASS — `181 passed, 16 skipped`, one deprecation warning. Skips are not PASS. |
+| Signed lifecycle unit tests | PASS — valid domain/capability, tamper, cross-capability, time, timezone and two-reviewer clinical-scope cases. |
+| Least-privilege static contract | PASS — separate credentials, role attributes, grants/RLS and immutability migration content. |
+| Alembic graph | PASS offline — one head `20260803_0010_signed_lifecycle_least_privilege`; full SQL emitted. Real application NOT RUN. |
+| Real PostgreSQL lifecycle/roles/import/promotion | NOT RUN — no runtime or dedicated URLs. |
+| Redis/multi-replica round robin | NOT RUN — no runtime or URL. |
+| Embedding smoke/full backfill | NOT RUN — persistent pgvector and explicit gates absent. |
+| Real-stack E2E/load/recovery/backup/staging | NOT RUN — see `docs/blockers/V7_EXTERNAL_PRODUCTION_INPUTS.md`. |
+| Secret scan | PASS for V7 changed files — no recognized live credential prefix; no environment values printed. |
+
+No reviewer, owner authorization reference, private key, signature, approval, promotion receipt, or production result
+was manufactured. The regenerated review artifact remains `DRAFT_CREATED_NOT_APPROVED`.
+
+Final local UI verification: npm audit/lint/typecheck PASS, Vitest `5 passed`, Next.js production build PASS, and
+Playwright `3 passed` in 14.5 seconds. Browser inspection rendered the development safety banner and portal
+accessibility tree with zero console warning/error. Browser form event behavior was not promoted to evidence because
+the in-app control surface kept the submit control disabled; the independent Playwright flow is the recorded PASS.

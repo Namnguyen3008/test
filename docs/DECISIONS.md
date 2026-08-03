@@ -51,3 +51,15 @@ Workers claim rows with database locks, deliver outside the transaction using st
 ## ADR-013: Telemetry records route templates only
 
 OpenTelemetry and Prometheus record service, route template, method, status, latency and trace identifiers. Request/response bodies, query strings, concrete resource IDs, headers, cookies, prompts and symptoms are excluded. OTLP export is disabled until an endpoint is explicitly configured.
+
+## ADR-014: Human review enables governance but never promotes by itself
+
+ADR-011's read-only restriction is superseded by an audited workflow. Reviewer/admin users may claim, release and decide review items with mandatory rationales and optimistic versions. Safety-critical approval requires two distinct reviewers. Decisions are append-only, exports hash rationales, and promotion reports remain `production_approved=false`; an external authorized governance action is still required.
+
+## ADR-015: Persistent embedding jobs deduplicate calls, not grounded chunks
+
+Provider work is keyed by deterministic release/mode/model jobs and content hashes. Identical eligible text is embedded once per model, then the result is stored separately for every grounded chunk. The previous uniqueness constraint on `(model_id, dimensions, content_hash)` is removed because it suppressed duplicate grounded records; `(chunk_id, model_id)` remains the isolation boundary. Production eligibility requires both an approved canonical status and a clinical review status.
+
+## ADR-016: Frontend pods receive no backend or AI secrets
+
+Helm injects database and Redis secrets only into non-web workloads and the Gemini key only into the API. The web image receives no database, Redis or AI credential. CI statically enforces the template guards and contains a real pgvector migration/backfill contract job; local infrastructure readiness is still a separate evidence gate.

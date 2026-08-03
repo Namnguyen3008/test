@@ -63,3 +63,7 @@ No Docker, Helm, PostgreSQL, Redis, full embedding backfill, or clinical approva
 | P8 security/observability/deployment | `COMPLETE_OFFLINE` | `7cad58e`; OTLP/Prometheus/PHI-safe structured telemetry; infra runtime blocked. |
 
 The highest-priority next action is persistent-runtime verification followed by the PostgreSQL FTS/pg_trgm/dual-pgvector runtime adapter and live checkpointed backfill. Those changes cannot be truthfully validated without PostgreSQL/pgvector and the explicit backfill flag. Exact commands and gates are in `docs/blockers/DOCKER_RUNTIME.md`, `docs/blockers/PERSISTENT_SERVICES.md` and `docs/blockers/EMBEDDING_BACKFILL.md`.
+
+## V4 supersession — 2026-08-03
+
+The persistent retrieval adapter, review workflow and guarded persistent embedding executor are now implemented in `345855e`, `367105f` and `0988fa2`. Continue from `docs/NEXT_PHASE_V4_EXECUTION.md`; this historical ledger is retained for append-only evidence. Live PostgreSQL/Redis, persistent import/backfill, governance approval and staging gates remain unresolved.

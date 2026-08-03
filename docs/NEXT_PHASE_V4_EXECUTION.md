@@ -28,3 +28,47 @@ Evidence is append-only. Last updated: 2026-08-03 Asia/Saigon.
 ## Baseline not repeated
 
 The append-only baseline remains `125 passed, 1 skipped`, web lint/type/unit/build and three Playwright tests. V4 will rerun relevant and final gates after new implementation; prior PASS evidence is not relabeled as V4 runtime evidence.
+
+## V4 completion ledger — 2026-08-03 12:00 Asia/Saigon
+
+This section supersedes the earlier V4 task states while preserving the recovery evidence above.
+
+| Task | State | Evidence / remaining gate |
+|---|---|---|
+| R0 recovery/truth audit | `COMPLETE` | `9a5b7ee`; source ZIP retained unchanged and safe extraction remains ignored. |
+| R1 persistent services | `BLOCKED_EXTERNAL` | Docker/Compose/PostgreSQL/Redis/Helm CLIs and service URLs remain unavailable; no system software was installed. |
+| R2 PostgreSQL retrieval runtime | `CODE_COMPLETE_OFFLINE` | `345855e`; PostgreSQL FTS + pg_trgm + isolated primary/fallback pgvector queries, canonical citation hydration, deterministic fusion, timeouts and lexical degradation are wired into the production graph selection. |
+| R3 import/backfill | `EXECUTOR_COMPLETE_LIVE_RUN_BLOCKED` | `0988fa2`; persistent checkpoint/resume/dedupe/retry/rate-limit/quarantine executor and guarded CLI. Full and smoke provider runs are NOT RUN. |
+| R4 real auth/booking/worker | `CODE_COMPLETE_OFFLINE_RUNTIME_BLOCKED` | Prior P0/P1/P7 evidence remains current; real PostgreSQL locks/races, Redis replicas and worker restart tests require services. |
+| R5 human approval workflow | `CODE_COMPLETE_OFFLINE` | `367105f`; RBAC actions, evidence display, mandatory rationale, two-person safety review, optimistic concurrency, immutable decisions and fail-closed promotion report. No actual approval was created. |
+| R6 grounded real-stack E2E | `BLOCKED_EXTERNAL` | Offline graph/security regressions and Playwright pass; PostgreSQL + Redis + live Gemini chain is NOT RUN. |
+| R7 resilience/security | `CODE_COMPLETE_OFFLINE_RUNTIME_BLOCKED` | `1250629`, `3557152`; full static/security regression passes, Helm secret boundary fixed, CI pgvector contract prepared. Restart/load/container scans are NOT RUN locally. |
+| R8 backup/restore | `RUNBOOK_COMPLETE_RESTORE_NOT_RUN` | Expanded aggregate-only encrypted PostgreSQL drill and rollback checks; tool/runtime absent. |
+| R9 staging release | `BLOCKED_EXTERNAL` | Hardened Compose/Helm/CI artifacts exist; Helm/Docker rendering, images, SBOM, staging deploy and smoke are NOT RUN. |
+
+### V4 commits
+
+- `345855e` — persistent PostgreSQL hybrid retrieval runtime and migration `0005`.
+- `367105f` — audited two-person clinical review workflow and migration `0006`.
+- `0988fa2` — guarded persistent dual-embedding jobs and migration `0007`.
+- `1250629` — repository formatter remediation for existing logging scripts.
+- `3557152` — CI pgvector contract and Helm frontend secret isolation.
+
+### Migration and data state
+
+- One Alembic head: `20260803_0007_embedding_backfill`; the complete PostgreSQL SQL chain renders offline.
+- Ignored development/review catalogs remain unchanged. Planner evidence remains 15,511 eligible chunks per model space.
+- No persistent import, live embedding request, smoke backfill or full backfill was run.
+- No clinical reviewer approval was created; production-approved row count remains zero.
+
+### V4 end-state flags
+
+```text
+CODE_COMPLETE=true
+INFRA_VERIFIED=false
+EMBEDDING_BACKFILL_COMPLETE=false
+DATA_APPROVED=false
+PRODUCTION_READY=false
+```
+
+`CODE_COMPLETE=true` follows the V4 acceptance definition: the production-selected persistent retrieval adapter, isolated vector spaces, lexical degradation, approval workflow/audit, one migration head and offline tests are implemented with no known P0/P1 code gap. It does not imply infrastructure, data, backfill or production readiness.

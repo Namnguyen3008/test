@@ -125,3 +125,45 @@ PRODUCTION_READY=false
 ```
 
 `CODE_COMPLETE=false` is intentional: the production graph still uses the safe lexical catalog adapter until the persistent PostgreSQL FTS/pg_trgm/dual-pgvector adapter and live backfill are implemented and verified. The external runtimes also block notification-provider and multi-process validation. No offline pass is promoted to production readiness.
+
+## V4 implementation update — 2026-08-03 12:00 Asia/Saigon
+
+This append-only update supersedes the earlier code-gap statement above. Runtime/readiness claims remain unchanged unless explicitly updated here.
+
+### Completed code milestones
+
+| Area | State | Commit / evidence |
+|---|---|---|
+| Persistent retrieval | `COMPLETE_OFFLINE` | `345855e`; migration `0005`, bounded PostgreSQL FTS/pg_trgm, independent 768d model predicates/indexes, citation hydration, deterministic fusion, timeouts and lexical-only degradation. |
+| Human approval | `COMPLETE_OFFLINE` | `367105f`; migration `0006`, reviewer/admin workflow, patient/staff negative authorization, rationale, claims, optimistic versions, immutable decisions and two distinct safety reviewers. Reports never set production approval. |
+| Persistent embedding jobs | `COMPLETE_OFFLINE_LIVE_BLOCKED` | `0988fa2`; migration `0007`, exact document instructions, checkpoint/resume, deduplicated provider work, per-chunk vectors, `SKIP LOCKED`, retry/backoff, quarantine and progress diagnostics. Full CLI fails closed without explicit gates. |
+| CI/deployment hardening | `PREPARED_NOT_EXECUTED` | `3557152`; CI pgvector migration/backfill contract and Helm guards that keep database/Redis/Gemini secrets out of the web pod. CI/container/Helm execution is not local PASS evidence. |
+| Backup and rollback | `RUNBOOK_COMPLETE_NOT_VERIFIED` | Aggregate-only PostgreSQL restore drill and exact embedding rebuild/rollback commands documented. |
+
+### Current migration
+
+`20260803_0001 -> 0002_identity -> 0003_booking -> 0004_worker_delivery -> 0005_retrieval_runtime -> 0006_clinical_review -> 0007_embedding_backfill (head)`
+
+### Final available verification
+
+- Ruff format: 112 files pass; Ruff lint passes.
+- Mypy: 62 source files pass; `pip check` reports no broken requirements.
+- Pytest: `145 passed, 2 skipped`; skips are the explicitly gated live PostgreSQL integration and a POSIX-only shim test.
+- Web: dependency audit zero vulnerabilities; lint/typecheck pass; 5 Vitest tests pass; Next.js production build pass; 3 Playwright tests pass.
+- Alembic: one head and full offline PostgreSQL SQL generation pass. Applying migrations to PostgreSQL is NOT RUN.
+- Secret scan: staged changes contain no recognized live credential prefix. No environment or secret value was dumped.
+
+### Remaining external gates
+
+1. Start real PostgreSQL/pgvector and Redis, apply migrations, then run the CI-equivalent persistent test, auth/session/booking races and multi-process Gemini round robin.
+2. Import the development/review release into persistent storage and run the bounded smoke backfill. Full backfill still requires explicit quota/cost authorization and both gates.
+3. Obtain real authorized governance evidence; code and synthetic tests cannot set `DATA_APPROVED=true`.
+4. Execute Compose/Helm/container scans, backup restore drill, real grounded E2E and staging deployment.
+
+```text
+CODE_COMPLETE=true
+INFRA_VERIFIED=false
+EMBEDDING_BACKFILL_COMPLETE=false
+DATA_APPROVED=false
+PRODUCTION_READY=false
+```

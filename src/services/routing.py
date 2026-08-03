@@ -11,11 +11,12 @@ import json
 import re
 import sqlite3
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol, cast
 
+from services.retrieval import GeminiQueryEmbeddingGateway, PostgresHybridRetriever
 from services.retrieval.registry import (
     CitationRegistry,
     DataMode,
@@ -23,6 +24,7 @@ from services.retrieval.registry import (
     retrieval_eligibility,
 )
 from src.config import get_settings
+from src.persistence.database import get_session_factory
 
 _TOKEN = re.compile(r"\w+", re.UNICODE)
 
@@ -40,6 +42,7 @@ class RoutingContext:
     records: tuple[RoutingRecord, ...]
     mode: str
     allowed_specialty_ids: frozenset[str]
+    diagnostics: Mapping[str, object] = field(default_factory=dict)
 
     @property
     def valid_source_ids(self) -> frozenset[str]:
@@ -122,11 +125,41 @@ class CatalogRoutingRetriever:
             tuple(item[2] for item in scored[:limit]),
             "lexical-only",
             self._specialty_ids,
+            {"adapter": "catalog", "grounded_records": min(len(scored), limit)},
         )
 
 
+class PostgresRoutingRetriever:
+    """Graph adapter for the persistent citation-gated hybrid repository."""
+
+    def __init__(self, retriever: PostgresHybridRetriever, gateway: GeminiQueryEmbeddingGateway) -> None:
+        self._retriever = retriever
+        self._gateway = gateway
+
+    async def retrieve(self, query: str, *, limit: int = 6) -> RoutingContext:
+        result = await self._retriever.retrieve(query, limit=limit)
+        records = tuple(
+            RoutingRecord(
+                record_id=item.record_id,
+                text=item.text,
+                specialty_id=item.specialty_id,
+                source_ids=tuple(citation.source_id for citation in item.citations),
+            )
+            for item in result.records
+        )
+        return RoutingContext(
+            records,
+            result.mode.value,
+            frozenset(record.specialty_id for record in records),
+            {"adapter": "postgres", **result.diagnostics},
+        )
+
+    async def aclose(self) -> None:
+        await self._gateway.aclose()
+
+
 @lru_cache
-def get_routing_retriever() -> CatalogRoutingRetriever:
+def get_routing_retriever() -> RoutingRetriever:
     settings = get_settings()
     release_id = (
         settings.emergency_release_id
@@ -136,6 +169,28 @@ def get_routing_retriever() -> CatalogRoutingRetriever:
             "production": "vmec-production-v1",
         }[settings.app_data_mode]
     )
+    postgres_url = settings.database_url.startswith(("postgresql://", "postgresql+"))
+    persistent_selected = postgres_url and (
+        settings.app_env == "production"
+        or settings.retrieval_runtime_mode == "postgres"
+        or settings.vmec_persistent_pgvector_verified
+    )
+    if settings.retrieval_runtime_mode == "postgres" and not postgres_url:
+        raise RuntimeError("PostgreSQL retrieval was requested without a PostgreSQL DATABASE_URL")
+    if persistent_selected and settings.retrieval_runtime_mode != "lexical":
+        gateway = GeminiQueryEmbeddingGateway(settings.gemini_api_key.get_secret_value())
+        return PostgresRoutingRetriever(
+            PostgresHybridRetriever(
+                get_session_factory(),
+                gateway.embed_query,
+                release_id=release_id,
+                data_mode=settings.app_data_mode,
+                statement_timeout_ms=settings.retrieval_statement_timeout_ms,
+                embedding_timeout_seconds=settings.retrieval_embedding_timeout_seconds,
+                candidate_limit=settings.retrieval_candidate_limit,
+            ),
+            gateway,
+        )
     return CatalogRoutingRetriever.from_catalog(
         Path(settings.emergency_catalog_path),
         release_id=release_id,

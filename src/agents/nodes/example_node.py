@@ -31,7 +31,11 @@ async def emergency_node(state: AgentState) -> dict:
 
 async def retrieve_node(state: AgentState) -> dict:
     context = await get_routing_retriever().retrieve(state.get("query", ""))
-    metadata = {"retrieval_mode": context.mode, "retrieval_record_count": len(context.records)}
+    metadata = {
+        "retrieval_mode": context.mode,
+        "retrieval_record_count": len(context.records),
+        **context.diagnostics,
+    }
     if not context.records:
         return {"response": SAFE_HANDOFF, "error": "no_grounded_context", "metadata": metadata}
     return {

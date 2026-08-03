@@ -3,6 +3,8 @@ import sqlite3
 
 import pytest
 
+from src.config import Settings
+from src.services import routing as routing_module
 from src.services.routing import CatalogRoutingRetriever
 
 
@@ -130,3 +132,57 @@ async def test_production_runtime_fails_closed_for_review_required_rows(tmp_path
 
     retriever = CatalogRoutingRetriever.from_catalog(database, release_id="prod", mode="production")
     assert not (await retriever.retrieve("đau ngực")).records
+
+
+def test_postgres_runtime_mode_refuses_non_postgres_database(monkeypatch) -> None:
+    routing_module.get_routing_retriever.cache_clear()
+    monkeypatch.setattr(
+        routing_module,
+        "get_settings",
+        lambda: Settings(retrieval_runtime_mode="postgres", database_url="sqlite:///unsafe.db"),
+    )
+    with pytest.raises(RuntimeError, match="PostgreSQL DATABASE_URL"):
+        routing_module.get_routing_retriever()
+    routing_module.get_routing_retriever.cache_clear()
+
+
+def test_configured_persistent_runtime_selects_postgres_adapter(monkeypatch) -> None:
+    constructed: dict[str, object] = {}
+
+    class FakeGateway:
+        def __init__(self, api_key: str) -> None:
+            constructed["key_present"] = bool(api_key)
+
+        async def embed_query(self, query, space):  # pragma: no cover - construction-only test
+            raise AssertionError
+
+        async def aclose(self) -> None:
+            return None
+
+    class FakePersistentRetriever:
+        def __init__(self, factory, embed_query, **kwargs) -> None:
+            constructed["factory"] = factory
+            constructed.update(kwargs)
+
+    sentinel_factory = object()
+    routing_module.get_routing_retriever.cache_clear()
+    monkeypatch.setattr(
+        routing_module,
+        "get_settings",
+        lambda: Settings(
+            retrieval_runtime_mode="postgres",
+            database_url="postgresql+psycopg://vmec.invalid/test",
+            gemini_api_key="configured-not-returned",
+        ),
+    )
+    monkeypatch.setattr(routing_module, "GeminiQueryEmbeddingGateway", FakeGateway)
+    monkeypatch.setattr(routing_module, "PostgresHybridRetriever", FakePersistentRetriever)
+    monkeypatch.setattr(routing_module, "get_session_factory", lambda: sentinel_factory)
+
+    selected = routing_module.get_routing_retriever()
+    assert isinstance(selected, routing_module.PostgresRoutingRetriever)
+    assert constructed["factory"] is sentinel_factory
+    assert constructed["release_id"] == "vmec-development-v2"
+    assert constructed["data_mode"] == "development"
+    assert constructed["key_present"] is True
+    routing_module.get_routing_retriever.cache_clear()

@@ -1,8 +1,15 @@
 """Retrieval primitives with strictly isolated Gemini embedding spaces."""
 
 from .chunking import CanonicalChunk, canonical_chunks
+from .embedding_gateway import GeminiQueryEmbeddingGateway
 from .index import InMemoryVectorIndex, VectorHit
 from .jobs import EmbeddingJobLedger, EmbeddingPipeline, EmbeddingRecord, JobDiagnostics, JobKey, JobState
+from .postgres import (
+    PersistentCitation,
+    PersistentRetrievalRecord,
+    PersistentRetrievalResult,
+    PostgresHybridRetriever,
+)
 from .registry import (
     BackfillPlan,
     Citation,
@@ -27,8 +34,13 @@ from .spaces import (
 __all__ = [
     "EMBEDDING_DIMENSIONS",
     "FALLBACK_EMBEDDING_SPACE",
+    "GeminiQueryEmbeddingGateway",
     "PRIMARY_EMBEDDING_MODEL",
     "PRIMARY_EMBEDDING_SPACE",
+    "PersistentCitation",
+    "PersistentRetrievalRecord",
+    "PersistentRetrievalResult",
+    "PostgresHybridRetriever",
     "TEXT_FALLBACK_EMBEDDING_MODEL",
     "CanonicalChunk",
     "BackfillPlan",

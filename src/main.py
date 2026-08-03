@@ -20,6 +20,7 @@ from src.services.emergency import (
     reset_emergency_rules,
 )
 from src.services.llm import get_llm
+from src.services.routing import get_routing_retriever
 
 
 @asynccontextmanager
@@ -40,6 +41,11 @@ async def lifespan(app: FastAPI):
         if get_llm.cache_info().currsize:
             await get_llm().aclose()
             get_llm.cache_clear()
+        if get_routing_retriever.cache_info().currsize:
+            retriever = get_routing_retriever()
+            if hasattr(retriever, "aclose"):
+                await retriever.aclose()
+            get_routing_retriever.cache_clear()
 
 
 def validate_data_readiness(data_mode: DataMode) -> None:

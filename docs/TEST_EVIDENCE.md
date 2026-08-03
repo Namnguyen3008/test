@@ -103,3 +103,24 @@ These omissions keep `INFRA_VERIFIED`, `EMBEDDING_BACKFILL_COMPLETE`, `DATA_APPR
 - Persistent auth/booking/worker/grounded-agent restart/load/recovery suite.
 - Helm lint/template/install, backup restore drill, staging smoke/E2E/observability and rollback.
 - Human reviewer approval and signed production governance promotion.
+
+## 2026-08-03 15:42 Asia/Saigon — V6 signed governance evidence
+
+| Check | Command | Result |
+|---|---|---|
+| Safe V6 extraction | SHA-256 before/after plus guarded ZIP extraction | PASS — 10/10 entries validated; original ZIP unchanged at `6A57C562...C413`. |
+| Manifest crypto/security | `pytest tests/test_governance_bridge.py -q` | PASS — valid signature, tamper, duplicate key, placeholder, revoked/wrong key, independent GOLD reviewers, scope drift, evidence tamper, receipt tamper and disabled gate. |
+| Policy classifier | `pytest tests/test_retrieval/test_governance_classification.py -q` | PASS — exact safety/table/tier markers; ordinary and loose name matches never become GOLD. |
+| Real catalog contract | `pytest tests/integration/test_governance_catalog_contract.py -q` | PASS read-only — 15,511 eligible, 12,345 GOLD, 3,166 ACCEPTED, 528 safety, 947 sources, expected source/registry digests. |
+| Draft idempotency | two consecutive `governance_bridge draft` generations plus SHA-256 | PASS — byte-identical ignored draft; no source mutation. |
+| Migration graph | `alembic heads`; `alembic upgrade head --sql` | PASS offline — one head `20260803_0009_governance_bridge`, 51,580-byte base-to-head SQL. Real PostgreSQL application NOT RUN. |
+| Python format/lint/type | Ruff across source/tests; mypy across source | PASS — 129 formatted files, lint clean, 68 typed source files. |
+| Full Python suite | `python -m pytest -q` | PASS — 173 passed, 7 skipped, one deprecation warning. Skips are not PASS. |
+| Web regression | lint, typecheck, Vitest, production build, `npm audit --audit-level=high` | PASS — 5 unit tests, all routes built and zero vulnerabilities. |
+| Local browser E2E | `npm.cmd run test:e2e` | PASS — 3 safe-adapter scenarios in 15.1 seconds. Persistent governance/Gemini stack NOT RUN. |
+| PostgreSQL atomic promotion | `tests/integration/test_postgres_governance.py` | SKIPPED locally — test is prepared for rollback after an injected second-row failure, exact replay, same-ID tamper, same-scope replay, source-preserving ACCEPTED/GOLD overlay, receipt and append-only rejection. `VMEC_TEST_POSTGRES_URL` absent. |
+| Compose/CI/Helm YAML | PyYAML safe parse and static template inspection | PASS static/PREPARED — explicit disabled-by-default promotion jobs and isolated artifact mounts. Docker/Helm execution NOT RUN. |
+
+No environment values, private keys, reviewer metadata, raw clinical content or live provider secrets were printed.
+No signed final manifest or receipt exists, so `GOVERNANCE_MANIFEST_VERIFIED`, `DATA_PROMOTION_COMPLETE` and
+`DATA_APPROVED` remain false.

@@ -198,3 +198,42 @@ DATA_APPROVED=false
 STAGING_VERIFIED=false
 PRODUCTION_READY=false
 ```
+
+## V6 signed governance update — 2026-08-03 15:42 Asia/Saigon
+
+This append-only update adds a fail-closed signed governance bridge and migration
+`20260803_0009_governance_bridge` in commit `945ba1b`. Machine draft generation against the immutable development release produced
+15,511 eligible rows: 12,345 policy GOLD candidates and 3,166 ordinary ACCEPTED candidates, with 528
+safety-critical rows and all 947 canonical ledger sources bound by digest. The draft and evidence artifacts are
+ignored; their unresolved identity/authorization/signature fields are `null`.
+
+Ed25519 verification, trust-key capability/validity/revocation, evidence recomputation, scope/content/source binding,
+GOLD classification, transaction locking, source-preserving production overlay, append-only per-row audit, signed
+receipt, replay/idempotency and tamper refusal are implemented. No promotion endpoint exists. Compose/Helm promotion
+contracts are explicit and disabled by default.
+
+Available Python regression is 173 passed and 7 skipped. The real-catalog governance contract passed locally. Six
+integration skips require PostgreSQL/Redis URLs and one is platform-specific; skipped checks are not PASS. Live
+PostgreSQL migration/promotion, persistent import, embeddings, backup/restore, real-stack E2E and staging remain
+blocked by missing runtimes and artifacts. See `docs/NEXT_PHASE_V6_EXECUTION.md` and
+`docs/blockers/V6_EXTERNAL_RUNTIME_AND_APPROVAL.md`.
+
+The user's external-approval statement does not satisfy the signed manifest contract by itself. No reviewer,
+authorization reference, signature or clinical approval was fabricated; no source row or canonical status was
+changed.
+
+```text
+CODE_COMPLETE=false
+INFRA_VERIFIED=false
+PERSISTENT_IMPORT_COMPLETE=false
+GOVERNANCE_BRIDGE_COMPLETE=true
+GOVERNANCE_MANIFEST_VERIFIED=false
+DATA_PROMOTION_COMPLETE=false
+EMBEDDING_SMOKE_COMPLETE=false
+EMBEDDING_BACKFILL_COMPLETE=false
+REAL_STACK_E2E_COMPLETE=false
+BACKUP_RESTORE_VERIFIED=false
+DATA_APPROVED=false
+STAGING_VERIFIED=false
+PRODUCTION_READY=false
+```

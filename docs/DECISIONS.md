@@ -75,3 +75,25 @@ Compose and Helm run migrations before application rollout, use PostgreSQL retri
 ## ADR-019: Review evidence packages are atomic but not production approval
 
 An admin review package is one transaction and replay must exactly match its immutable record/content/evidence/source/safety fields. Queue priority favors second-review and safety work. Safe exports have a versioned deterministic digest and hashed rationales, but remain audit evidence only; they cannot set production status without a separately authorized signed governance bridge and real reviewer evidence.
+
+## ADR-020: Governance approval is a signed external trust boundary
+
+Machine drafts use a distinct non-approvable schema with unresolved human fields set to null. Final approval uses
+domain-separated Ed25519 signatures, strict canonical JSON, a capability-scoped public trust registry and an evidence
+artifact that binds the immutable release, full source ledger, normalized content and policy classification. Reviewer
+metadata is protected by the signature but is never manufactured by application code.
+
+## ADR-021: Promotion creates an audited production overlay
+
+Governance does not mutate the source SQLite catalog or overwrite development/review canonical statuses. A verified
+manifest atomically creates a production-mode PostgreSQL overlay, per-row source-to-production audit records and a
+separately signed receipt. Ordinary approved rows become ACCEPTED; only versioned policy candidates with two scoped
+independent reviewers become GOLD. Exact replay returns the stored receipt, while modified or competing scope replay
+fails closed.
+
+## ADR-022: Revocation does not silently demote released data
+
+Trust-key revocation blocks new operations. A committed receipt and row audit remain append-only. The supplied V6
+schema has no signed supersession/revocation artifact, so the implementation rejects replacement rather than
+inventing an unsigned demotion path. A future schema must define explicit authorization and audit semantics before
+release supersession is enabled.

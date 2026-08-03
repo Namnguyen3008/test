@@ -4,6 +4,13 @@ from .chunking import CanonicalChunk, canonical_chunks
 from .embedding_gateway import GeminiQueryEmbeddingGateway
 from .index import InMemoryVectorIndex, VectorHit
 from .jobs import EmbeddingJobLedger, EmbeddingPipeline, EmbeddingRecord, JobDiagnostics, JobKey, JobState
+from .persistent_import import (
+    CatalogProjection,
+    PersistentCatalogImporter,
+    PersistentImportResult,
+    PersistentRecordProjection,
+    PersistentSource,
+)
 from .persistent_jobs import ClaimedEmbedding, PersistentEmbeddingBackfill, PersistentJobDiagnostics
 from .postgres import (
     PersistentCitation,
@@ -43,6 +50,11 @@ __all__ = [
     "PersistentRetrievalResult",
     "PostgresHybridRetriever",
     "PersistentEmbeddingBackfill",
+    "PersistentCatalogImporter",
+    "PersistentImportResult",
+    "PersistentRecordProjection",
+    "PersistentSource",
+    "CatalogProjection",
     "PersistentJobDiagnostics",
     "ClaimedEmbedding",
     "TEXT_FALLBACK_EMBEDDING_MODEL",

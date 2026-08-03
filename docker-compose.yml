@@ -1,19 +1,91 @@
-version: "3.8"
+name: vmec-01
+
+x-runtime: &runtime
+  restart: unless-stopped
+  init: true
+  user: "10001:10001"
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  cap_drop:
+    - ALL
+  security_opt: [no-new-privileges:true]
 
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: vmec
+      POSTGRES_USER: vmec
+      POSTGRES_PASSWORD: vmec
     volumes:
-      - ./data:/app/data
-    restart: unless-stopped
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/init.sql:/docker-entrypoint-initdb.d/00-extensions.sql:ro
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: [CMD-SHELL, "pg_isready -U vmec -d vmec"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *runtime
+    build: { context: ., dockerfile: Dockerfile }
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      APP_ENV: development
+      APP_DATA_MODE: development
+      DATABASE_URL: postgresql+psycopg://vmec:vmec@postgres:5432/vmec
+      REDIS_URL: redis://redis:6379/0
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      - ./data:/app/data:ro
+      - reports:/app/data/reports
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    <<: *runtime
+    build: { context: ., dockerfile: Dockerfile }
+    command: ["python", "-m", "apps.worker"]
+    environment:
+      APP_ENV: development
+      APP_DATA_MODE: development
+      DATABASE_URL: postgresql+psycopg://vmec:vmec@postgres:5432/vmec
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./data:/app/data:ro
+      - reports:/app/data/reports
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web:
+    <<: *runtime
+    build: { context: ./apps/web, dockerfile: Dockerfile }
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  postgres_data:
+  redis_data:
+  reports:

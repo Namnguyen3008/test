@@ -1,0 +1,17 @@
+{
+  "name": "vmec-01",
+  "private": true,
+  "workspaces": ["apps/web"],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "build:web": "npm --workspace apps/web run build",
+    "lint:web": "npm --workspace apps/web run lint",
+    "typecheck:web": "npm --workspace apps/web run typecheck",
+    "test:web": "npm --workspace apps/web run test"
+  },
+  "engines": { "node": ">=22" },
+  "overrides": {
+    "postcss": "8.5.25",
+    "sharp": "0.35.0"
+  }
+}

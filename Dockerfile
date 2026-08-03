@@ -1,5 +1,5 @@
 # ---- Stage 1: Build ----
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # ---- Stage 2: Production ----
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -16,13 +16,13 @@ COPY --from=builder /root/.local /root/.local
 ENV PATH=/root/.local/bin:$PATH
 
 # Security: run as non-root user
-RUN useradd -m appuser
+RUN useradd --create-home --uid 10001 appuser
 
 # Copy application code
 COPY . .
 
 # Create data directory with correct ownership
-RUN mkdir -p /app/data && chown -R appuser:appuser /app
+RUN mkdir -p /app/data /tmp && chown -R appuser:appuser /app /tmp
 
 USER appuser
 

@@ -10,6 +10,17 @@ langchain>=0.3.0
 langgraph>=0.2.0
 google-genai>=2.16.0,<3.0.0
 
+# Platform
+SQLAlchemy>=2.0.43,<3.0
+alembic>=1.16.4,<2.0
+psycopg[binary]>=3.2.9,<4.0
+pgvector>=0.4.1,<1.0
+redis>=6.4.0,<7.0
+celery>=5.5.3,<6.0
+argon2-cffi>=25.1.0,<26.0
+cryptography>=45.0.6,<46.0
+prometheus-client>=0.22.1,<1.0
+
 # Database (uncomment as needed)
 # sqlalchemy>=2.0.0
 # alembic>=1.14.0
@@ -23,3 +34,4 @@ ruff>=0.8.0
 pytest>=8.0.0
 pytest-asyncio>=0.24.0
 httpx>=0.28.0
+mypy>=1.17.1,<2.0

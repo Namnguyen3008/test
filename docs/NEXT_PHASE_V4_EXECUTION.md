@@ -72,3 +72,9 @@ PRODUCTION_READY=false
 ```
 
 `CODE_COMPLETE=true` follows the V4 acceptance definition: the production-selected persistent retrieval adapter, isolated vector spaces, lexical degradation, approval workflow/audit, one migration head and offline tests are implemented with no known P0/P1 code gap. It does not imply infrastructure, data, backfill or production readiness.
+
+## R3 importer completion — 2026-08-03 12:05 Asia/Saigon
+
+Commit `5b4a8c0` closes the remaining offline R3 bridge: immutable SQLite catalogs are projected into citation-gated, minimal PostgreSQL retrieval records with deterministic release/record/chunk IDs, batch checkpoints, idempotent resume, source/content conflict refusal and a production zero-approved-row gate. Migration head is now `20260803_0008_persistent_import`.
+
+The projection was run read-only against the ignored development catalog: 48,217 text candidates, 15,511 eligible records/chunks and registry digest `213b8dd1f6ce520df6bd87f0b560bcb14594a6c2a42e3659f3fd5f3670a86642`, matching prior planning evidence. PostgreSQL import remains NOT RUN. End-state flags above remain unchanged.

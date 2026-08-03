@@ -65,3 +65,14 @@ Evidence is append-only. Secrets, prompt bodies and patient data are intentional
 - Backup restore drill and real clinical governance approval.
 
 These omissions keep `INFRA_VERIFIED`, `EMBEDDING_BACKFILL_COMPLETE`, `DATA_APPROVED` and `PRODUCTION_READY` false.
+
+### R3 persistent import addendum — 2026-08-03 12:05 Asia/Saigon
+
+| Check | Command | Result |
+|---|---|---|
+| Minimal catalog projection | `pytest tests/test_retrieval/test_persistent_import.py -q` | PASS — deterministic IDs, citation gating, private-field exclusion, production zero-approved refusal and execution gates. |
+| Real ignored catalog projection | `CatalogProjection(...).plan()` with aggregate-only output | PASS read-only — 48,217 candidates, 15,511 eligible/chunks, established registry digest; no row text printed. |
+| Retrieval/import suite | `pytest tests/test_retrieval tests/integration/test_postgres_embedding_backfill.py -q` | PASS offline — 34 passed, 2 skipped because PostgreSQL URL is absent. |
+| Migration | `alembic heads`; `alembic upgrade head --sql` | PASS offline — one head `20260803_0008_persistent_import`, 42,796-byte SQL chain. Live application NOT RUN. |
+| Import refusal | `scripts/import_catalog_to_postgres.py ...` with persistent gate forced false | PASS — exit 2 before database connection; source catalog unchanged. |
+| Post-importer full regression | Ruff format/check, mypy, `pip check`, `pytest -q -rs` | PASS — 116 formatted files, 63 typed source files, 148 passed and 3 explicit skips (two PostgreSQL-gated, one POSIX-only). |

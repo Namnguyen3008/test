@@ -17,6 +17,14 @@ Apply migrations and verify the persistent release UUID, pgvector extension and 
 .\.venv\Scripts\python.exe -m alembic current
 ```
 
+Import the citation-gated development or review projection. This command requires verified PostgreSQL/pgvector and prints aggregate identifiers/counts only:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\import_catalog_to_postgres.py --catalog data\staging\vmec_catalog.sqlite3 --logical-release-id vmec-development-v2 --data-mode development
+```
+
+Use the returned persistent release UUID for smoke/full embedding commands. Rerun the same import and verify PostgreSQL record/chunk/source counts do not increase. Production import remains fail closed when approved eligible count is zero.
+
 ## Smoke backfill
 
 Configure `GEMINI_API_KEY` in the runtime secret store without printing it. Set `VMEC_PERSISTENT_PGVECTOR_VERIFIED=true` only after the database checks pass. Smoke is bounded per model:

@@ -26,3 +26,5 @@ CI now defines a `pgvector/pgvector:pg16` service, applies the full Alembic chai
 ```
 
 The first integration test requires `VMEC_TEST_POSTGRES_URL` pointing to an isolated migrated database. Real Redis multi-process and PostgreSQL booking-race evidence are still required.
+
+After `5b4a8c0`, that PostgreSQL CI test also imports a synthetic read-only catalog twice and asserts stable record/chunk counts before exercising both model spaces. The required migration head is `20260803_0008_persistent_import`; the CI definition still has not been executed locally.

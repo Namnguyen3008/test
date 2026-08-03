@@ -13,3 +13,5 @@ Do not set `EMBEDDING_BACKFILL_COMPLETE=true` from the planning report or smoke 
 Commit `0988fa2` adds migration head `20260803_0007_embedding_backfill` and `scripts/run_embedding_backfill.py`. The executor is persistent, resumable, deduplicated, rate-limited, retrying and quarantining, and it refuses full execution unless both explicit gates are true. The refusal path was exercised without a provider call. Exact smoke/full commands and verification queries are in `docs/runbooks/EMBEDDING_REBUILD.md`.
 
 The live smoke and full jobs remain NOT RUN because PostgreSQL/pgvector, a runtime Gemini credential and authorization gates are unavailable. This section does not change `EMBEDDING_BACKFILL_COMPLETE=false`.
+
+Commit `5b4a8c0` subsequently adds the guarded persistent catalog import and advances the required head to `20260803_0008_persistent_import`. Run the import command in `docs/runbooks/EMBEDDING_REBUILD.md` before smoke backfill. The code path is tested offline; persistent import itself is still NOT RUN.

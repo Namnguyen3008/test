@@ -63,3 +63,7 @@ Provider work is keyed by deterministic release/mode/model jobs and content hash
 ## ADR-016: Frontend pods receive no backend or AI secrets
 
 Helm injects database and Redis secrets only into non-web workloads and the Gemini key only into the API. The web image receives no database, Redis or AI credential. CI statically enforces the template guards and contains a real pgvector migration/backfill contract job; local infrastructure readiness is still a separate evidence gate.
+
+## ADR-017: Persistent import is a minimal deterministic projection
+
+The source SQLite catalog is opened read-only and never copied wholesale into patient-facing persistence. Only retrieval-eligible text, a small allowlist of routing metadata, canonical source links, governance statuses and stable hashes are projected. Logical releases, records and chunks receive deterministic UUIDs, making resume idempotent. Source-ID/URL or content-hash conflicts fail closed, and production import refuses before writing when the approved eligible count is zero.

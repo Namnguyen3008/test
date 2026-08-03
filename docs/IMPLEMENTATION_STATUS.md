@@ -124,6 +124,14 @@ DATA_APPROVED=false
 PRODUCTION_READY=false
 ```
 
+### V4 R3 addendum — 2026-08-03 12:05 Asia/Saigon
+
+`5b4a8c0` adds the fail-closed persistent catalog importer and migration `20260803_0008_persistent_import` (new single head). The importer reads SQLite with `mode=ro`, stores no unallowlisted payload fields, preserves canonical source mapping/content hashes, checkpoints batches and produces zero duplicate persistent identities on resume. Its production path refuses before persistence when eligible approved count is zero.
+
+Read-only real-catalog projection passed with 48,217 candidates, 15,511 eligible chunks and the established registry digest. Targeted retrieval/import tests pass (`34 passed, 2 infrastructure-gated skips`), and the complete Alembic chain renders offline to 42,796 bytes. No persistent row or vector was written; the five state flags remain exactly as recorded above.
+
+Final post-importer regression supersedes the earlier V4 totals: Ruff format 116 files, Ruff lint PASS, mypy 63 source files, `148 passed, 3 skipped`, and no broken Python requirements. The three skips are two explicit PostgreSQL integration cases plus the POSIX-only shim test.
+
 `CODE_COMPLETE=false` is intentional: the production graph still uses the safe lexical catalog adapter until the persistent PostgreSQL FTS/pg_trgm/dual-pgvector adapter and live backfill are implemented and verified. The external runtimes also block notification-provider and multi-process validation. No offline pass is promoted to production readiness.
 
 ## V4 implementation update — 2026-08-03 12:00 Asia/Saigon

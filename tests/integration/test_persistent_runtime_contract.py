@@ -41,7 +41,7 @@ def test_empty_database_migration_has_required_extensions_and_single_head() -> N
     try:
         with engine.connect() as connection:
             assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "20260803_0008_persistent_import"
+                "20260803_0009_governance_bridge"
             )
             extensions = set(
                 connection.scalars(

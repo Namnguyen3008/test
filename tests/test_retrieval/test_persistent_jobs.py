@@ -92,7 +92,7 @@ def test_persistent_sql_deduplicates_calls_but_writes_each_eligible_chunk() -> N
     assert "GROUP BY claimed.content_hash" in claim
     assert "ON CONFLICT(chunk_id,model_id)" in insert
     for statement in (prepare, claim, insert):
-        assert "kr.release_id = :release_id" in statement
+        assert "logical_release_id = :release_id" in statement
         assert "kr.mode = :data_mode" in statement
         assert "knowledge_record_sources" in statement
         assert "canonical_url" in statement

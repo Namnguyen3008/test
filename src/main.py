@@ -119,7 +119,7 @@ async def readiness():
                         text("SELECT extname FROM pg_extension WHERE extname IN ('vector','pg_trgm','unaccent')")
                     )
                 )
-            if migration != "20260803_0008_persistent_import" or extensions != {"vector", "pg_trgm", "unaccent"}:
+            if migration != "20260803_0009_governance_bridge" or extensions != {"vector", "pg_trgm", "unaccent"}:
                 raise RuntimeError("persistent schema is incomplete")
             redis = Redis.from_url(settings.redis_url)
             sessions = Redis.from_url(settings.session_redis_url)

@@ -16,6 +16,11 @@ config:
 runtimeData:
   # Pre-provision this read-only claim with the approved manifest and compiled catalog.
   existingClaim: vmec-runtime-data
+governancePromotion:
+  # Enable only for a reviewed one-shot staging/production promotion.
+  enabled: false
+  artifactSecret: vmec-governance-artifacts
+  databaseUrlSecret: vmec-governance-database
 ingress:
   enabled: false
   className: nginx

@@ -75,7 +75,7 @@ def test_sql_contract_has_bounded_filters_citations_and_exact_model_predicate() 
     lexical = str(_LEXICAL_SQL)
     vector_sql = str(_VECTOR_SQL)
     for statement in (lexical, vector_sql):
-        assert "kr.release_id = :release_id" in statement
+        assert "logical_release_id = :release_id" in statement
         assert "kr.mode = :data_mode" in statement
         assert "conflict_status" in statement
         assert "canonical_status" in statement

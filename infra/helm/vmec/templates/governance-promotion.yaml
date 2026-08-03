@@ -1,0 +1,36 @@
+{{- if .Values.governancePromotion.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "vmec.name" . }}-governance-promote
+  labels: { app.kubernetes.io/name: {{ include "vmec.name" . }}, app.kubernetes.io/component: governance-promote }
+spec:
+  backoffLimit: 0
+  template:
+    metadata: { labels: { app.kubernetes.io/name: {{ include "vmec.name" . }}, app.kubernetes.io/component: governance-promote } }
+    spec:
+      restartPolicy: Never
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: governance-promote
+          image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
+          command: ["python", "-m", "scripts.governance_bridge", "promote"]
+          env:
+            - { name: VMEC_ALLOW_GOVERNANCE_PROMOTION, value: "true" }
+            - { name: VMEC_GOVERNANCE_MANIFEST_PATH, value: "/run/governance/manifest.json" }
+            - { name: VMEC_GOVERNANCE_PUBLIC_KEY_PATH, value: "/run/governance/trust-registry.json" }
+            - { name: VMEC_GOVERNANCE_EVIDENCE_PATH, value: "/run/governance/evidence.json" }
+            - { name: VMEC_GOVERNANCE_RECEIPT_SIGNING_KEY_PATH, value: "/run/governance/receipt-private-key.txt" }
+            - name: GOVERNANCE_DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.governancePromotion.databaseUrlSecret }}, key: database-url }
+          volumeMounts:
+            - { name: governance-artifacts, mountPath: /run/governance, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: ["ALL"] } }
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: governance-artifacts
+          secret: { secretName: {{ .Values.governancePromotion.artifactSecret }} }
+        - { name: tmp, emptyDir: {} }
+{{- end }}

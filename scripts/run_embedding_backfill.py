@@ -47,7 +47,7 @@ def verify_runtime(factory: sessionmaker[Session]) -> None:
         migration = session.scalar(text("SELECT version_num FROM alembic_version"))
     if vector is not True:
         raise RuntimeError("pgvector extension is not available")
-    if migration != "20260803_0008_persistent_import":
+    if migration != "20260803_0009_governance_bridge":
         raise RuntimeError("persistent database is not at the required migration head")
 
 

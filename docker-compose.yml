@@ -101,6 +101,25 @@ services:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
+  governance-promote:
+    <<: *runtime
+    profiles: [governance]
+    build: { context: ., dockerfile: Dockerfile }
+    command:
+      ["python", "-m", "scripts.governance_bridge", "promote", "--receipt-output", "/app/data/reports/vmec-production-v1.json"]
+    environment:
+      VMEC_ALLOW_GOVERNANCE_PROMOTION: "true"
+      VMEC_GOVERNANCE_MANIFEST_PATH: /run/governance/manifest.json
+      VMEC_GOVERNANCE_PUBLIC_KEY_PATH: /run/governance/trust-registry.json
+      VMEC_GOVERNANCE_EVIDENCE_PATH: /run/governance/evidence.json
+      VMEC_GOVERNANCE_RECEIPT_SIGNING_KEY_PATH: /run/governance/receipt-private-key.txt
+      GOVERNANCE_DATABASE_URL: ${GOVERNANCE_DATABASE_URL:-}
+    volumes:
+      - ${VMEC_GOVERNANCE_ARTIFACT_DIR:-./data/governance/runtime}:/run/governance:ro
+      - reports:/app/data/reports
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
   web:
     <<: *runtime
     build:

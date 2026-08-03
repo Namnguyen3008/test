@@ -19,6 +19,7 @@ from .registry import (
     CitationRegistry,
     DataMode,
     candidate_from_dataset_row,
+    governance_classification,
     plan_embedding_backfill,
     retrieval_eligibility,
 )
@@ -53,6 +54,9 @@ class PersistentRecordProjection:
     canonical_status: str
     review_status: str
     conflict_status: str
+    safety_critical: bool
+    gold_candidate: bool
+    gold_reason: str
     normalized_text: str
     content_hash: str
     metadata: Mapping[str, str]
@@ -129,6 +133,10 @@ class CatalogProjection:
         value, _ = self._header()
         return value
 
+    def ledger_sources(self) -> tuple[PersistentSource, ...]:
+        _, citations = self._header()
+        return tuple(PersistentSource(item.source_id, item.canonical_url, item.title) for item in citations.entries())
+
     def records(self) -> Iterator[PersistentRecordProjection]:
         _, citations = self._header()
         for table, row_id, content_hash, raw in self._rows():
@@ -153,6 +161,7 @@ class CatalogProjection:
                 for field in _SAFE_METADATA_FIELDS
                 if payload.get(field) is not None and str(payload[field]).strip()
             }
+            classification = governance_classification(table, payload)
             yield PersistentRecordProjection(
                 id=record_id,
                 release_id=self.release_id,
@@ -162,6 +171,9 @@ class CatalogProjection:
                 canonical_status=candidate.canonical_status,
                 review_status=candidate.review_status,
                 conflict_status=candidate.conflict_status,
+                safety_critical=classification.safety_critical,
+                gold_candidate=classification.gold_candidate,
+                gold_reason=classification.gold_reason,
                 normalized_text=candidate.text,
                 content_hash=candidate.content_hash,
                 metadata=metadata,
@@ -212,6 +224,24 @@ class PersistentCatalogImporter:
             )
             if _affected(release_result) == 0:
                 raise RuntimeError("Persistent release identity conflicts with a prior import")
+            for source in projection.ledger_sources():
+                source_result = session.execute(
+                    text(
+                        "INSERT INTO global_sources(id,canonical_url,title,metadata) "
+                        "VALUES(:id,:url,:title,'{}'::jsonb) ON CONFLICT(id) DO UPDATE SET title=excluded.title "
+                        "WHERE global_sources.canonical_url=excluded.canonical_url"
+                    ),
+                    {"id": source.source_id, "url": source.canonical_url, "title": source.title},
+                )
+                if _affected(source_result) == 0:
+                    raise RuntimeError("Canonical ledger source conflicts with a different URL")
+                session.execute(
+                    text(
+                        "INSERT INTO dataset_release_sources(release_id,source_id) VALUES(:release_id,:source_id) "
+                        "ON CONFLICT(release_id,source_id) DO NOTHING"
+                    ),
+                    {"release_id": projection.release_id, "source_id": source.source_id},
+                )
             session.execute(
                 text(
                     "INSERT INTO dataset_import_jobs(id,release_id,status,checkpoint,started_at,updated_at) "
@@ -239,9 +269,11 @@ class PersistentCatalogImporter:
             text(
                 "INSERT INTO knowledge_records("
                 "id,release_id,origin_table,origin_row_id,mode,canonical_status,review_status,conflict_status,"
+                "safety_critical,gold_candidate,gold_reason,"
                 "normalized_text,content_hash,metadata) VALUES("
                 ":id,:release_id,:origin_table,:origin_row_id,:mode,:canonical_status,:review_status,"
-                ":conflict_status,:normalized_text,:content_hash,cast(:metadata AS jsonb)) "
+                ":conflict_status,:safety_critical,:gold_candidate,:gold_reason,:normalized_text,:content_hash,"
+                "cast(:metadata AS jsonb)) "
                 "ON CONFLICT(id) DO UPDATE SET normalized_text=excluded.normalized_text "
                 "WHERE knowledge_records.content_hash=excluded.content_hash"
             ),
@@ -254,6 +286,9 @@ class PersistentCatalogImporter:
                 "canonical_status": record.canonical_status,
                 "review_status": record.review_status,
                 "conflict_status": record.conflict_status,
+                "safety_critical": record.safety_critical,
+                "gold_candidate": record.gold_candidate,
+                "gold_reason": record.gold_reason,
                 "normalized_text": record.normalized_text,
                 "content_hash": record.content_hash,
                 "metadata": json.dumps(record.metadata, sort_keys=True, separators=(",", ":")),

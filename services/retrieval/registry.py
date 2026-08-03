@@ -48,6 +48,29 @@ _FORBIDDEN_TABLES: Final = frozenset(
 )
 _PRODUCTION_STATUSES: Final = frozenset({"ACCEPTED", "GOLD", "APPROVED"})
 _PRODUCTION_REVIEW_STATUSES: Final = frozenset({"CLINICALLY_APPROVED", "APPROVED"})
+_SAFETY_CRITICAL_TABLES: Final = frozenset(
+    {
+        "adult_emergency_phrases",
+        "adult_emergency_rules",
+        "maternal_emergency_rules",
+        "newborn_rules",
+        "pediatric_emergency_rules",
+        "postpartum_rules",
+        "urgent_exclusions",
+    }
+)
+_EXPLICIT_GOLD_TABLES: Final = frozenset(
+    {
+        "clinical_gold",
+        "adult_emergency_gold_tests",
+        "maternal_gold_tests",
+        "pediatric_gold_tests",
+        "hard_negative_gold",
+        "intent_gold_tests",
+        "emergency_hidden",
+        "routing_hidden",
+    }
+)
 _TEXT_FIELDS: Final[dict[str, tuple[str, ...]]] = {
     "routing_rows": ("user_utterance_vi", "utterance_vi", "question_text_vi", "response_text_vi"),
     "specialty_reference": ("name_vi",),
@@ -148,6 +171,38 @@ class CitationRegistry:
             raise ValueError(f"Unknown canonical source ids: {', '.join(sorted(missing))}")
         return tuple(self._sources[source_id] for source_id in unique)
 
+    def entries(self) -> tuple[Citation, ...]:
+        """Return the canonical ledger without exposing ambiguous aliases."""
+        return tuple(self._sources[source_id] for source_id in sorted(self._sources))
+
+
+@dataclass(frozen=True, slots=True)
+class GovernanceClassification:
+    safety_critical: bool
+    gold_candidate: bool
+    gold_reason: str
+
+
+def governance_classification(origin_table: str, payload: Mapping[str, object]) -> GovernanceClassification:
+    """Apply the deterministic V6 classifier to immutable source metadata."""
+    safety_critical = origin_table in _SAFETY_CRITICAL_TABLES
+    data_tier = str(payload.get("data_tier", "")).strip().upper()
+    intended_tier = str(payload.get("intended_tier", "")).strip().upper()
+    hidden_gold = str(payload.get("hidden_gold", "")).strip().upper()
+    explicit = (
+        data_tier in {"GOLD", "GOLD_DRAFT"}
+        or intended_tier in {"GOLD", "GOLD_CORE_CANDIDATE"}
+        or hidden_gold in {"YES", "TRUE", "1"}
+        or origin_table in _EXPLICIT_GOLD_TABLES
+    )
+    if safety_critical:
+        reason = "SAFETY_CRITICAL_TABLE_V1"
+    elif explicit:
+        reason = "EXPLICIT_SOURCE_GOLD_CANDIDATE_V1"
+    else:
+        reason = ""
+    return GovernanceClassification(safety_critical, safety_critical or explicit, reason)
+
 
 def candidate_from_dataset_row(
     origin_table: str,
@@ -206,8 +261,9 @@ def retrieval_eligibility(
     if not candidate.text.strip() or not candidate.content_hash:
         return EligibilityDecision(False, EligibilityReason.EMPTY_CONTENT)
     if (
-        candidate.conflict_status.upper() in {"CONFLICT", "REJECTED"}
-        or candidate.canonical_status.upper() == "REJECTED"
+        candidate.conflict_status.upper() in {"CONFLICT", "REJECTED", "BLOCKED"}
+        or candidate.canonical_status.upper() in {"REJECTED", "BLOCKED"}
+        or candidate.review_status.upper() in {"REJECTED", "BLOCKED", "CHANGES_REQUESTED"}
     ):
         return EligibilityDecision(False, EligibilityReason.CONFLICT_OR_REJECTED)
     if mode == "production" and (

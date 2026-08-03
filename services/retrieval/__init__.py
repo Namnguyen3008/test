@@ -24,8 +24,10 @@ from .registry import (
     CitationRegistry,
     EligibilityDecision,
     EligibilityReason,
+    GovernanceClassification,
     RetrievalCandidate,
     candidate_from_dataset_row,
+    governance_classification,
     plan_embedding_backfill,
     retrieval_eligibility,
 )
@@ -68,6 +70,7 @@ __all__ = [
     "EmbeddingSpace",
     "EligibilityDecision",
     "EligibilityReason",
+    "GovernanceClassification",
     "HybridRetriever",
     "InMemoryVectorIndex",
     "JobKey",
@@ -79,6 +82,7 @@ __all__ = [
     "VectorHit",
     "canonical_chunks",
     "candidate_from_dataset_row",
+    "governance_classification",
     "plan_embedding_backfill",
     "retrieval_eligibility",
 ]

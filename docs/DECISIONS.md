@@ -27,3 +27,27 @@ The supplied inventory reports zero production-ready rows. Code therefore permit
 ## ADR-007: Frontend dependency remediation
 
 The web app uses Next.js 16.2.12 and explicit patched PostCSS/Sharp overrides because the upstream Next package manifest still pins versions covered by August 2026 advisories. `npm audit` reports zero vulnerabilities and the clean build/E2E suite passes. Remove overrides when an upstream Next release adopts patched dependency ranges.
+
+## ADR-008: Persistent identity and booking transactions
+
+Production identity and booking paths use SQLAlchemy/PostgreSQL mappings, opaque Redis session tokens and actor-scoped idempotency records. Slot and appointment mutations lock rows and emit append-only events plus outbox records in the same transaction. SQLite remains an offline test adapter, not evidence of PostgreSQL production concurrency.
+
+## ADR-009: Development emergency rules retain conservative seeds
+
+Compiled development/review snapshots merge the conservative seed rules to avoid losing previously verified high-risk phrases. Production snapshots do not merge unapproved seeds and continue to fail closed unless approved corpus rules exist.
+
+## ADR-010: Grounded graph rejects rather than repairs model output
+
+The graph calls emergency detection first, retrieves allowlisted/citation-mapped records, requests strict JSON, and rejects unknown specialties, unknown citations, low confidence, clinical claims or extra fields such as `analysis`. It returns human handoff instead of attempting to repair or infer missing grounding.
+
+## ADR-011: Review queue is read-only until governance workflow exists
+
+Reviewer and admin APIs expose only allowlisted, non-conflict review content and aggregate diagnostics. There is deliberately no endpoint that changes canonical status to ACCEPTED/GOLD; clinical approval must be a separately authorized, audited governance action.
+
+## ADR-012: Outbox delivery is at-least-once with external idempotency keys
+
+Workers claim rows with database locks, deliver outside the transaction using stable delivery keys, and persist retry/backoff/dead-letter state. External adapters must honor the key idempotently. Missing notification providers fail and retry; they are never treated as successful mock delivery.
+
+## ADR-013: Telemetry records route templates only
+
+OpenTelemetry and Prometheus record service, route template, method, status, latency and trace identifiers. Request/response bodies, query strings, concrete resource IDs, headers, cookies, prompts and symptoms are excluded. OTLP export is disabled until an endpoint is explicitly configured.

@@ -76,3 +76,52 @@ Manual local browser validation covered patient emergency submission, masked ope
 5. The emergency detector is a tested seed rule set; importing and validating the complete supplied emergency corpus into runtime rules remains required before clinical use.
 
 Highest-priority next executable task: install/start Docker, run `docker compose up --build`, apply Alembic to empty PostgreSQL, import both releases into PostgreSQL, execute full dual-embedding backfill with checkpoints, then wire and test authenticated booking APIs/UI against that real stack.
+
+## Continuation evidence — 2026-08-03 11:04 Asia/Saigon
+
+This section supersedes the earlier remaining-work statements where new commits provide evidence. Historical evidence above is retained unchanged.
+
+### Completed in this continuation
+
+| Priority | State | Evidence |
+|---|---|---|
+| P0 persistent auth/RBAC/consent/audit | `CODE_COMPLETE_OFFLINE` | `7d4d7fb`, `2bd800f`; PostgreSQL mappings, Argon2id, opaque Redis sessions, CSRF rotation/revocation, distributed rate limiting and negative authorization tests. |
+| P1 booking lifecycle | `CODE_COMPLETE_OFFLINE` | `7d4d7fb`, `e239f4a`; real APIs/portals, TTL holds, patient/staff confirmation, reschedule reconfirmation, idempotency, row locks and SQLite concurrency test. Real PostgreSQL race remains unverified. |
+| P2 emergency runtime | `CODE_COMPLETE_DEVELOPMENT` | `a9dea1b`, `1496e65`, `e239f4a`; versioned catalog compiler plus conservative seed preservation. Production remains fail closed with zero approved rules. |
+| P3 dual retrieval | `FOUNDATION_COMPLETE_BACKFILL_BLOCKED` | `8aab80d`; two isolated 768d spaces, citation/eligibility gate, deterministic lexical degradation, checkpoint/retry/quarantine planner. Full persistent backfill was not authorized or run. |
+| P4 Gemini gateway | `CODE_COMPLETE_OFFLINE` | `a9dea1b`, prior `497d5a6`; exact two-model Redis round robin, retry/failover semantics, safe handoff and PHI-safe telemetry. Exact four model IDs were live capability-checked without printing the key. |
+| P5 emergency-first grounded graph | `CODE_COMPLETE_OFFLINE` | `6ea19bc`; emergency → retrieval → structured Gemini JSON → validation → route/handoff. Unknown specialties/citations and extra `analysis` fields are rejected. |
+| P6 role portals | `CODE_COMPLETE_OFFLINE` | `e239f4a`, `ecef5b5`; login/logout, patient booking, staff queue, read-only clinical review queue, admin audit/data/model diagnostics and explicit degraded states. No mock patient identity is used. |
+| P7 worker/outbox/reminders/analytics | `CODE_COMPLETE_OFFLINE` | `fd82cf9`; Beat schedules, hold expiry, fixed-key reminders, idempotency-keyed outbox delivery, retry/backoff/dead-letter, no-show/reschedule events and identifier-free aggregate analytics. External notification provider is not configured. |
+| P8 observability/security/deployment | `CODE_COMPLETE_OFFLINE` | `7cad58e`; OpenTelemetry FastAPI spans with OTLP option, Prometheus metrics, template-only structured request logs, existing hardened images/CI/runbooks. Docker/Helm execution remains blocked. |
+
+### Current migrations
+
+`20260803_0001 -> 20260803_0002_identity -> 20260803_0003_booking -> 20260803_0004_worker_delivery (head)`
+
+`0004` adds retry/dead-letter state to `booking_outbox`, persistent unique reminders and the audited `NO_SHOW` appointment state.
+
+### Current data and retrieval evidence
+
+- Development catalog: 447,525 imported rows and 947 canonical sources; review catalog remains present from prior import evidence.
+- Emergency development snapshot: 4,650 corpus rules plus conservative seed rules, 2,330 hard negatives, zero approved production rules.
+- Dual-embedding plan: 48,217 text candidates; 15,511 citation-gated eligible chunks per independent model space; registry digest `213b8dd1f6ce520df6bd87f0b560bcb14594a6c2a42e3659f3fd5f3670a86642`.
+- Full backfill remains refused because `VMEC_ALLOW_FULL_EMBEDDING_BACKFILL` is not enabled and persistent PostgreSQL/pgvector is not verified.
+- Real catalog routing smoke: lexical-only safe degradation returned six grounded hits, one canonical source and 14 allowlisted specialty IDs for the aggregate smoke query.
+- Reviewer runtime smoke: read-only queue returned three sample items; no status mutation endpoint exists, so code cannot manufacture ACCEPTED/GOLD approval.
+
+### Final verification in this continuation
+
+See `docs/TEST_EVIDENCE.md` for commands and timestamped output. Summary: Ruff format/check pass; mypy pass for 55 source files; pytest `125 passed, 1 skipped`; pip check pass; npm audit reports zero vulnerabilities; web lint/typecheck/3 unit tests/build pass; Playwright `3 passed`; Alembic offline chain and single head pass.
+
+### End-state flags
+
+```text
+CODE_COMPLETE=false
+INFRA_VERIFIED=false
+EMBEDDING_BACKFILL_COMPLETE=false
+DATA_APPROVED=false
+PRODUCTION_READY=false
+```
+
+`CODE_COMPLETE=false` is intentional: the production graph still uses the safe lexical catalog adapter until the persistent PostgreSQL FTS/pg_trgm/dual-pgvector adapter and live backfill are implemented and verified. The external runtimes also block notification-provider and multi-process validation. No offline pass is promoted to production readiness.

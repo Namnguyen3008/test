@@ -46,3 +46,20 @@ Last updated: 2026-08-03 (Asia/Saigon)
   pre-existing formatting drift. Product source is verified separately to avoid rewriting the guide corpus.
 
 No Docker, Helm, PostgreSQL, Redis, full embedding backfill, or clinical approval is marked as verified.
+
+## Continuation ledger — 2026-08-03 11:04 Asia/Saigon
+
+| Priority | State after continuation | Commits / evidence |
+|---|---|---|
+| P0 recovery | `COMPLETE` | `0781393`; safe pack extraction retained under ignored `.codex/plans/`, original ZIP unchanged. |
+| P0 auth/RBAC/consent/audit | `COMPLETE_OFFLINE` | `7d4d7fb`, `2bd800f`. |
+| P1 booking | `COMPLETE_OFFLINE` | `7d4d7fb`, `e239f4a`; real PostgreSQL repository/API and real portal clients. |
+| P2 emergency corpus | `COMPLETE_DEVELOPMENT` | `a9dea1b`, `1496e65`, `e239f4a`; production approval remains external. |
+| P3 retrieval/backfill | `READY_FOR_PERSISTENT_BACKFILL` | `8aab80d`; full backfill blocked by flag + pgvector runtime. |
+| P4 Gemini | `COMPLETE_OFFLINE_AND_MODEL_IDS_LIVE_CHECKED` | exact two generative/two embedding IDs only. |
+| P5 grounded graph | `COMPLETE_OFFLINE` | `6ea19bc`; citation/specialty/structured-output validation. |
+| P6 portals | `COMPLETE_OFFLINE` | `e239f4a`, `ecef5b5`; patient/staff/reviewer/admin states. |
+| P7 workers | `COMPLETE_OFFLINE` | `fd82cf9`; migration `0004`, Beat, outbox, reminder, retry, no-show, analytics. |
+| P8 security/observability/deployment | `COMPLETE_OFFLINE` | `7cad58e`; OTLP/Prometheus/PHI-safe structured telemetry; infra runtime blocked. |
+
+The highest-priority next action is persistent-runtime verification followed by the PostgreSQL FTS/pg_trgm/dual-pgvector runtime adapter and live checkpointed backfill. Those changes cannot be truthfully validated without PostgreSQL/pgvector and the explicit backfill flag. Exact commands and gates are in `docs/blockers/DOCKER_RUNTIME.md`, `docs/blockers/PERSISTENT_SERVICES.md` and `docs/blockers/EMBEDDING_BACKFILL.md`.

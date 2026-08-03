@@ -74,3 +74,4 @@ var/
 .env
 .env.*.local
 .codex/runs/
+.codex/plans/

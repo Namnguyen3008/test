@@ -1,6 +1,6 @@
 """Celery worker with PHI-safe scheduled task registration."""
 
-from celery import Celery
+from celery import Celery  # type: ignore[import-untyped]
 
 from src.config import get_settings
 

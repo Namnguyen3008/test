@@ -136,9 +136,27 @@ def test_catalog_compiler_reads_completed_release_read_only(tmp_path) -> None:
         "INSERT INTO dataset_rows VALUES (?,?,?,?)",
         ("dev-v2", "hard_negatives", "1", json.dumps(corpus_negative(), ensure_ascii=False)),
     )
+    connection.execute(
+        "INSERT INTO dataset_rows VALUES (?,?,?,?)",
+        (
+            "dev-v2",
+            "adult_emergency_rules",
+            "1",
+            json.dumps(
+                {
+                    "rule_id": "ADULT-1",
+                    "trigger_definition_vi": "liệt nửa người đột ngột",
+                    "action_code": "CALL_115_OR_GO_TO_ED_NOW",
+                    "canonical_status": "REVIEW_REQUIRED",
+                    "review_status": "PENDING_CLINICAL_REVIEW",
+                },
+                ensure_ascii=False,
+            ),
+        ),
+    )
     connection.commit()
     connection.close()
 
     ruleset = compile_emergency_catalog(database, release_id="dev-v2", mode="development")
-    assert len(ruleset.rules) == 1
+    assert len(ruleset.rules) == 2
     assert len(ruleset.hard_negatives) == 1

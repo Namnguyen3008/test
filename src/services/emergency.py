@@ -28,6 +28,18 @@ EMERGENCY_ACTION: Final = (
 _APPROVED_STATUSES: Final = frozenset({"ACCEPTED", "GOLD", "APPROVED"})
 _APPROVED_REVIEW_STATUSES: Final = frozenset({"CLINICALLY_APPROVED", "APPROVED"})
 _EMERGENCY_ACTION_CODES: Final = frozenset({"CALL_115_OR_GO_TO_ED_NOW", "GO_TO_ED_NOW"})
+_CORPUS_RULE_TEXT_FIELDS: Final[dict[str, tuple[str, ...]]] = {
+    "urgent_exclusions": ("trigger_phrase_vi", "positive_pattern_vi", "pattern_vi"),
+    "adult_emergency_rules": ("trigger_definition_vi", "trigger_summary_vi", "adult_emergency_rules"),
+    "pediatric_emergency_rules": (
+        "trigger_definition_vi",
+        "trigger_summary_vi",
+        "pediatric_emergency_rules",
+    ),
+    "maternal_emergency_rules": ("trigger_summary_vi", "maternal_emergency_rules"),
+    "newborn_rules": ("trigger_summary_vi", "newborn_rules"),
+    "postpartum_rules": ("trigger_summary_vi", "postpartum_rules"),
+}
 _NEGATION_MARKERS: Final = (
     "khong bi",
     "khong co",
@@ -100,6 +112,37 @@ def _is_approved(row: Mapping[str, object]) -> bool:
 def _is_suppressed_context(normalized: str, phrase_start: int) -> bool:
     prefix = normalized[max(0, phrase_start - 48) : phrase_start]
     return any(marker in prefix for marker in (*_NEGATION_MARKERS, *_HISTORICAL_MARKERS, *_HYPOTHETICAL_MARKERS))
+
+
+def _canonical_emergency_rows(table: str, rows: Iterable[Mapping[str, object]]) -> list[dict[str, object]]:
+    """Promote heterogeneous supplied rule tables into the narrow runtime schema."""
+    fields = _CORPUS_RULE_TEXT_FIELDS[table]
+    canonical: list[dict[str, object]] = []
+    for row in rows:
+        action = str(row.get("emergency_action_code") or row.get("action_code") or "").upper()
+        if action not in _EMERGENCY_ACTION_CODES:
+            continue
+        phrase = next((str(row.get(field, "")).strip() for field in fields if str(row.get(field, "")).strip()), "")
+        normalized = _normalize(phrase)
+        if len(normalized) < 4 or len(normalized) > 500:
+            continue
+        row_id = str(row.get("row_id") or row.get("rule_id") or row.get("global_row_id") or "").strip()
+        if not row_id:
+            continue
+        canonical.append(
+            {
+                "row_id": f"{table}:{row_id}",
+                "trigger_phrase_vi": phrase,
+                "emergency_action_code": action,
+                "canonical_status": row.get("canonical_status", ""),
+                "review_status": row.get("review_status", ""),
+                "age_group": row.get("age_group") or row.get("adult_age_group") or table,
+                "source_id": row.get("source_id") or row.get("primary_source_id"),
+                "secondary_source_id": row.get("secondary_source_id"),
+                "content_hash": row.get("content_hash") or f"{table}\0{row_id}\0{normalized}",
+            }
+        )
+    return canonical
 
 
 class EmergencyDetector:
@@ -260,8 +303,11 @@ def compile_emergency_catalog(
                 )
             ]
 
+        positive_rows = [
+            row for table in _CORPUS_RULE_TEXT_FIELDS for row in _canonical_emergency_rows(table, load(table))
+        ]
         return compile_emergency_rows(
-            load("urgent_exclusions"),
+            positive_rows,
             load("hard_negatives"),
             release_id=release_id,
             mode=mode,

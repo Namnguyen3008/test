@@ -10,6 +10,7 @@ from .registry import (
     EligibilityDecision,
     EligibilityReason,
     RetrievalCandidate,
+    candidate_from_dataset_row,
     plan_embedding_backfill,
     retrieval_eligibility,
 )
@@ -49,6 +50,7 @@ __all__ = [
     "RetrievalResponse",
     "VectorHit",
     "canonical_chunks",
+    "candidate_from_dataset_row",
     "plan_embedding_backfill",
     "retrieval_eligibility",
 ]

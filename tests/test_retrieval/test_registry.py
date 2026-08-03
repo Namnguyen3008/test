@@ -3,6 +3,7 @@ from services.retrieval import (
     CitationRegistry,
     EligibilityReason,
     RetrievalCandidate,
+    candidate_from_dataset_row,
     plan_embedding_backfill,
     retrieval_eligibility,
 )
@@ -94,6 +95,21 @@ def test_global_source_ledger_bridge_resolves_local_ids_to_canonical_ids() -> No
     assert resolved == (Citation("GLOBAL_SRC_1", "https://example.test/canonical", "Canonical source"),)
 
 
+def test_ambiguous_ledger_alias_is_excluded_instead_of_misresolved() -> None:
+    registry = CitationRegistry.from_global_ledger(
+        [
+            {"global_source_id": "GLOBAL_1", "source_id": "LOCAL", "canonical_url": "https://one.test"},
+            {"global_source_id": "GLOBAL_2", "source_id": "LOCAL", "canonical_url": "https://two.test"},
+        ]
+    )
+    try:
+        registry.resolve(("LOCAL",))
+    except ValueError as error:
+        assert "LOCAL" in str(error)
+    else:  # pragma: no cover
+        raise AssertionError("ambiguous alias must not resolve")
+
+
 def test_embedding_plan_is_deterministic_and_refuses_unapproved_full_run() -> None:
     candidates = [candidate(), candidate(origin_row_id="route-2", text="x" * 901, content_hash="b" * 64)]
     first = plan_embedding_backfill(candidates, mode="development", citations=citations())
@@ -124,3 +140,22 @@ def test_embedding_plan_requires_both_flag_and_persistent_pgvector() -> None:
     assert not blocked.full_backfill_permitted
     assert "pgvector" in blocked.refusal_reason
     assert allowed.full_backfill_permitted
+
+
+def test_dataset_row_projection_keeps_only_retrieval_fields_and_sources() -> None:
+    projected = candidate_from_dataset_row(
+        "routing_rows",
+        "route-1",
+        "a" * 64,
+        {
+            "user_utterance_vi": "Tôi cần tìm chuyên khoa phù hợp",
+            "source_ids": "SOURCE-1|SOURCE-2",
+            "secondary_source_id": "SOURCE-2",
+            "canonical_status": "REVIEW_REQUIRED",
+            "private_note": "must not be retained",
+        },
+    )
+
+    assert projected.text == "Tôi cần tìm chuyên khoa phù hợp"
+    assert projected.source_ids == ("SOURCE-1", "SOURCE-2")
+    assert not hasattr(projected, "private_note")

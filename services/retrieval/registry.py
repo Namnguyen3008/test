@@ -48,6 +48,21 @@ _FORBIDDEN_TABLES: Final = frozenset(
 )
 _PRODUCTION_STATUSES: Final = frozenset({"ACCEPTED", "GOLD", "APPROVED"})
 _PRODUCTION_REVIEW_STATUSES: Final = frozenset({"CLINICALLY_APPROVED", "APPROVED"})
+_TEXT_FIELDS: Final[dict[str, tuple[str, ...]]] = {
+    "routing_rows": ("user_utterance_vi", "utterance_vi", "question_text_vi", "response_text_vi"),
+    "specialty_reference": ("name_vi",),
+    "clarifying_questions": ("question_text_vi", "clarifying_question_vi"),
+    "faq": ("question_vi", "answer_vi", "response_text_vi"),
+    "human_support_content": ("content_vi", "response_text_vi"),
+    "visit_preparation": ("content_vi", "response_text_vi"),
+    "urgent_exclusions": ("trigger_phrase_vi", "patient_message_vi", "response_text_vi"),
+    "adult_emergency_phrases": ("utterance_vi", "trigger_phrase_vi"),
+    "adult_emergency_rules": ("trigger_definition_vi", "trigger_summary_vi"),
+    "maternal_emergency_rules": ("trigger_summary_vi", "maternal_emergency_rules"),
+    "newborn_rules": ("trigger_summary_vi", "newborn_rules"),
+    "pediatric_emergency_rules": ("trigger_definition_vi", "trigger_summary_vi"),
+    "postpartum_rules": ("trigger_summary_vi", "postpartum_rules"),
+}
 
 
 class EligibilityReason(StrEnum):
@@ -109,17 +124,19 @@ class CitationRegistry:
         """Build the local-source-to-global-source bridge from ledger rows."""
         sources: dict[str, Citation] = {}
         aliases: dict[str, str] = {}
+        ambiguous_aliases: set[str] = set()
         for row in rows:
             global_id = str(row.get("global_source_id", "")).strip()
             canonical_url = str(row.get("canonical_url") or row.get("source_url") or "").strip()
-            if not global_id or not canonical_url:
+            if not global_id or not canonical_url.startswith(("https://", "http://", "internal://", "//")):
                 continue
             sources[global_id] = Citation(global_id, canonical_url, str(row.get("source_title") or ""))
             local_id = str(row.get("source_id") or "").strip()
-            if local_id:
+            if local_id and local_id not in ambiguous_aliases:
                 prior = aliases.setdefault(local_id, global_id)
                 if prior != global_id:
-                    raise ValueError(f"Ambiguous Global Source Ledger alias: {local_id}")
+                    aliases.pop(local_id, None)
+                    ambiguous_aliases.add(local_id)
         return cls(sources, aliases)
 
     def resolve(self, source_ids: Iterable[str]) -> tuple[Citation, ...]:
@@ -130,6 +147,49 @@ class CitationRegistry:
         if missing:
             raise ValueError(f"Unknown canonical source ids: {', '.join(sorted(missing))}")
         return tuple(self._sources[source_id] for source_id in unique)
+
+
+def candidate_from_dataset_row(
+    origin_table: str,
+    origin_row_id: str,
+    content_hash: str,
+    payload: Mapping[str, object],
+) -> RetrievalCandidate:
+    """Create a minimal candidate without retaining unrelated/private payload fields."""
+    text = next(
+        (
+            str(payload.get(field, "")).strip()
+            for field in _TEXT_FIELDS.get(origin_table, ())
+            if str(payload.get(field, "")).strip()
+        ),
+        "",
+    )
+    source_values = (
+        payload.get("source_id"),
+        payload.get("source_ids"),
+        payload.get("primary_source_id"),
+        payload.get("secondary_source_id"),
+        payload.get("secondary_source_ids"),
+    )
+    source_ids = tuple(
+        dict.fromkeys(
+            part.strip()
+            for value in source_values
+            if value
+            for part in str(value).replace(",", "|").split("|")
+            if part.strip()
+        )
+    )
+    return RetrievalCandidate(
+        origin_table=origin_table,
+        origin_row_id=origin_row_id,
+        text=text,
+        content_hash=content_hash,
+        source_ids=source_ids,
+        canonical_status=str(payload.get("canonical_status", "REVIEW_REQUIRED")),
+        review_status=str(payload.get("review_status", "PENDING_CLINICAL_REVIEW")),
+        conflict_status=str(payload.get("conflict_status", "")),
+    )
 
 
 def retrieval_eligibility(

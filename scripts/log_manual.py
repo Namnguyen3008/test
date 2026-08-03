@@ -28,9 +28,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 try:
-    from .log_redaction import sanitize_value
+    from .log_redaction import metadata_only_entry
 except ImportError:
-    from log_redaction import sanitize_value
+    from log_redaction import metadata_only_entry
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -99,10 +99,10 @@ def main():
         "branch": git("git rev-parse --abbrev-ref HEAD"),
         "commit": git("git rev-parse --short HEAD"),
         "student": student,
-        "prompt": prompt[:1000],
-        "response_summary": result[:500] if result else "",
+        "payload_present": True,
+        "payload_char_count": min(len(prompt) + len(result), 100_000),
     }
-    entry = sanitize_value(entry)
+    entry = metadata_only_entry(entry)
 
     log_dir = Path(os.environ.get("AI_LOG_DIR", ".ai-log"))
     log_dir.mkdir(exist_ok=True)
@@ -111,7 +111,7 @@ def main():
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-    print(f"\n[log] ✅ Logged: [{tool}] {prompt[:80]}")
+    print(f"\n[log] ✅ Logged metadata-only activity for [{tool}]")
     print(f"[log] 📁 Saved to: {log_file}")
 
 

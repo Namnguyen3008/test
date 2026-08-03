@@ -1,0 +1,6 @@
+apiVersion: v2
+name: vmec
+description: VMEC-01 specialty-routing and booking platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

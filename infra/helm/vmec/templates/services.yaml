@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Service
+metadata: { name: vmec-api }
+spec: { selector: { app.kubernetes.io/name: vmec, app.kubernetes.io/component: api }, ports: [{ name: http, port: 8000, targetPort: http }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: vmec-web }
+spec: { selector: { app.kubernetes.io/name: vmec, app.kubernetes.io/component: web }, ports: [{ name: http, port: 3000, targetPort: http }] }

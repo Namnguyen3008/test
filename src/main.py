@@ -5,25 +5,23 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routes import router
 from src.config import get_settings
+from src.security import SecurityHeadersMiddleware
 from src.services.llm import get_llm
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    settings = get_settings()
-    print(f"Starting {settings.app_name} in {settings.app_env} mode")
     try:
         yield
     finally:
         if get_llm.cache_info().currsize:
             await get_llm().aclose()
             get_llm.cache_clear()
-        print("Shutting down...")
 
 
 app = FastAPI(
-    title="AI20K Agent",
-    description="AI Agent built with LangGraph",
+    title="VMEC-01 API",
+    description="Emergency-first specialty routing and appointment platform",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -36,6 +34,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(router, prefix="/api/v1")
 

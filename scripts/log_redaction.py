@@ -1,7 +1,22 @@
-"""Redact credentials and bound payload size before AI logs leave the machine."""
+"""Privacy helpers for local, metadata-only AI activity logs."""
 
 import re
 from typing import Any
+
+_METADATA_KEYS = frozenset(
+    {
+        "ts",
+        "tool",
+        "event",
+        "entry_id",
+        "model",
+        "repo",
+        "branch",
+        "commit",
+        "payload_present",
+        "payload_char_count",
+    }
+)
 
 _SECRET_KEY = re.compile(r"(?i)(?:key|token|secret|password|authorization)")
 _SECRET_PATTERNS = (
@@ -46,3 +61,17 @@ def sanitize_value(value: Any, depth: int = 0) -> Any:
     if isinstance(value, tuple):
         return tuple(sanitize_value(item, depth + 1) for item in value[:100])
     return value
+
+
+def metadata_only_entry(value: dict[str, Any]) -> dict[str, Any]:
+    """Return an allowlisted event record that cannot contain prompt or PHI text.
+
+    Redaction is deliberately not the privacy boundary: free-form medical text
+    cannot be made safe using credential regular expressions. Producers must
+    persist only this small, non-user-content metadata schema.
+    """
+    return {
+        key: sanitize_value(item)
+        for key, item in value.items()
+        if key in _METADATA_KEYS
+    }

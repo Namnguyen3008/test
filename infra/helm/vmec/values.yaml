@@ -1,0 +1,19 @@
+replicaCount: 2
+images:
+  api: { repository: vmec/api, tag: latest }
+  web: { repository: vmec/web, tag: latest }
+  worker: { repository: vmec/api, tag: latest }
+config:
+  appEnv: production
+  dataMode: production
+  databaseUrlSecret: vmec-runtime
+  redisUrlSecret: vmec-runtime
+  geminiKeySecret: vmec-gemini
+ingress:
+  enabled: false
+  className: nginx
+  host: vmec.example.invalid
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits: { cpu: 1000m, memory: 1Gi }
+autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 8, targetCPU: 70 }

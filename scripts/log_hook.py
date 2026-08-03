@@ -11,9 +11,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 try:
-    from .log_redaction import sanitize_value
+    from .log_redaction import metadata_only_entry
 except ImportError:
-    from log_redaction import sanitize_value
+    from log_redaction import metadata_only_entry
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -163,7 +163,10 @@ def normalize(data: dict, tool: str) -> dict | None:
     if not has_payload and event not in lifecycle_events:
         return None
 
-    return sanitize_value(base)
+    payload_char_count = sum(len(str(base.get(key, ""))) for key in payload_keys)
+    base["payload_present"] = has_payload
+    base["payload_char_count"] = min(payload_char_count, 100_000)
+    return metadata_only_entry(base)
 
 
 def main():

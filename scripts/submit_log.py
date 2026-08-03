@@ -32,6 +32,9 @@ except ImportError:
 
 SERVER_URL = os.environ.get("AI_LOG_SERVER", "")
 API_KEY = os.environ.get("AI_LOG_API_KEY", "")
+EXTERNAL_SUBMISSION_ENABLED = os.environ.get(
+    "VMEC_AI_LOG_EXTERNAL_SUBMISSION_ENABLED", "false"
+).strip().lower() in {"1", "true", "yes"}
 LOG_DIR = Path(os.environ.get("AI_LOG_DIR", ".ai-log"))
 LOG_FILE = LOG_DIR / "session.jsonl"
 ARCHIVE_DIR = LOG_DIR / "archive"
@@ -73,6 +76,13 @@ def _restore_pending(pending: Path) -> None:
 
 
 def main():
+    if not EXTERNAL_SUBMISSION_ENABLED:
+        print(
+            "[ai-log] External submission disabled by default for VMEC.",
+            file=sys.stderr,
+        )
+        sys.exit(0)
+
     if not SERVER_URL:
         print("[ai-log] AI_LOG_SERVER not set — skipping submission.", file=sys.stderr)
         sys.exit(0)

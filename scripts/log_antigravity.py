@@ -39,6 +39,7 @@ Env overrides:
   AI_LOG_DIR             where session.jsonl is written (default: .ai-log)
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -46,6 +47,11 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+try:
+    from .log_redaction import metadata_only_entry
+except ImportError:
+    from log_redaction import metadata_only_entry
 
 # Fix Windows console encoding so VN diacritics in prompts print cleanly.
 if sys.platform == "win32":
@@ -275,20 +281,21 @@ def build_entry(msg: dict, repo: str, branch: str, commit: str,
         except ValueError:
             pass
 
-    return {
+    conversation_digest = hashlib.sha256(msg["conv_id"].encode("utf-8")).hexdigest()[:16]
+    return metadata_only_entry({
         "ts": ts or datetime.now(VN_TZ).isoformat(),
         "tool": "antigravity",
         "event": "UserPrompt",
-        "entry_id": f"antigravity-{msg['conv_id']}-{msg['step_index']:05d}",
+        "entry_id": f"antigravity-{conversation_digest}-{msg['step_index']:05d}",
         "session_id": msg["conv_id"],
         "model": "gemini",
         "repo": repo,
         "branch": branch,
         "commit": commit,
         "student": student,
-        "prompt": msg["text"],
-        "response_summary": "",
-    }
+        "payload_present": bool(msg["text"]),
+        "payload_char_count": min(len(msg["text"]), 100_000),
+    })
 
 
 def main() -> None:
@@ -362,8 +369,7 @@ def main() -> None:
         print(f"\n[antigravity-log] DRY RUN — would log "
               f"{len(new_entries)} entries:\n")
         for e in new_entries:
-            preview = e["prompt"].replace("\n", " ")[:120]
-            print(f"  [{e['ts'][:19]}] {preview}")
+            print(f"  [{e['ts'][:19]}] metadata-only activity")
         sys.exit(0)
 
     with open(log_file, "a", encoding="utf-8") as f:
@@ -381,7 +387,7 @@ def main() -> None:
 
 def _legacy_log(summary: str, model: str) -> None:
     ts = datetime.now(VN_TZ).isoformat()
-    entry = {
+    entry = metadata_only_entry({
         "ts": ts,
         "tool": "antigravity",
         "event": "TaskComplete",
@@ -392,14 +398,14 @@ def _legacy_log(summary: str, model: str) -> None:
         "commit": git("git rev-parse --short HEAD"),
         "student": git("git config user.email") or os.environ.get(
             "USERNAME", os.environ.get("USER", "unknown")),
-        "prompt": summary[:1000],
-        "response_summary": f"[Antigravity] {summary[:500]}",
-    }
+        "payload_present": bool(summary),
+        "payload_char_count": min(len(summary), 100_000),
+    })
     log_dir = Path(os.environ.get("AI_LOG_DIR", ".ai-log"))
     log_dir.mkdir(exist_ok=True)
     with open(log_dir / "session.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    print(f"[antigravity-log] Logged manual: {summary[:80]}...", file=sys.stderr)
+    print("[antigravity-log] Logged metadata-only manual activity.", file=sys.stderr)
 
 
 if __name__ == "__main__":

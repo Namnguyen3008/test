@@ -1,14 +1,21 @@
 """Generate a PHI-free dual-embedding execution plan without API calls."""
 
+# ruff: noqa: E402 -- direct script execution bootstraps the repository import root.
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
 import sqlite3
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Literal, cast
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from services.retrieval import (
     EMBEDDING_DIMENSIONS,

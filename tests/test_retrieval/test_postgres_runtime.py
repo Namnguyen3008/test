@@ -78,6 +78,7 @@ def test_sql_contract_has_bounded_filters_citations_and_exact_model_predicate() 
         assert "kr.release_id = :release_id" in statement
         assert "kr.mode = :data_mode" in statement
         assert "conflict_status" in statement
+        assert "canonical_status" in statement
         assert "knowledge_record_sources" in statement
         assert "canonical_url" in statement
         assert "LIMIT :candidate_limit" in statement
@@ -180,6 +181,22 @@ async def test_gateway_uses_exact_models_and_model_specific_query_instructions()
     assert models.calls[0]["config"].task_type is None
     assert models.calls[1]["contents"] == "đau ngực"
     assert models.calls[1]["config"].task_type == "RETRIEVAL_QUERY"
+    assert all(call["config"].output_dimensionality == 768 for call in models.calls)
+
+
+@pytest.mark.asyncio
+async def test_gateway_uses_model_specific_document_instructions() -> None:
+    models = FakeEmbeddingModels()
+    client = SimpleNamespace(aio=SimpleNamespace(models=models))
+    gateway = GeminiQueryEmbeddingGateway("configured-secret-not-returned", client=client)
+    await gateway.embed_document("grounded corpus text", PRIMARY_EMBEDDING_SPACE)
+    await gateway.embed_document("grounded corpus text", FALLBACK_EMBEDDING_SPACE)
+
+    assert [call["model"] for call in models.calls] == ["gemini-embedding-2", "gemini-embedding-001"]
+    assert models.calls[0]["contents"].startswith("task: search result | title: none | text:")
+    assert models.calls[0]["config"].task_type is None
+    assert models.calls[1]["contents"] == "grounded corpus text"
+    assert models.calls[1]["config"].task_type == "RETRIEVAL_DOCUMENT"
     assert all(call["config"].output_dimensionality == 768 for call in models.calls)
 
 

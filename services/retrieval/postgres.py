@@ -38,10 +38,14 @@ _ELIGIBILITY_SQL: Final = f"""
     kr.release_id = :release_id
     AND kr.mode = :data_mode
     AND kr.origin_table IN ({_TABLE_SQL})
+    AND coalesce(upper(kr.canonical_status),'') <> 'REJECTED'
     AND coalesce(upper(kr.conflict_status),'') NOT IN ('CONFLICT','REJECTED','BLOCKED')
     AND (
       :data_mode <> 'production'
-      OR upper(coalesce(kr.review_status,'')) IN ('APPROVED','CLINICALLY_APPROVED','ACCEPTED','GOLD')
+      OR (
+        upper(coalesce(kr.canonical_status,'')) IN ('APPROVED','ACCEPTED','GOLD')
+        AND upper(coalesce(kr.review_status,'')) IN ('APPROVED','CLINICALLY_APPROVED')
+      )
     )
     AND EXISTS (
       SELECT 1 FROM knowledge_record_sources eligible_krs

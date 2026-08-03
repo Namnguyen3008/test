@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     retrieval_embedding_timeout_seconds: float = Field(default=8.0, gt=0, le=60)
     retrieval_candidate_limit: int = Field(default=50, ge=10, le=200)
     vmec_persistent_pgvector_verified: bool = False
+    vmec_allow_full_embedding_backfill: bool = False
 
     # Authentication
     session_redis_url: str = "redis://localhost:6379/1"

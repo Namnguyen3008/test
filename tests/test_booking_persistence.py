@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -23,6 +24,7 @@ from src.booking.repository import (
 from src.persistence.database import Base, get_db_session
 from src.persistence.identity_models import UserRecord
 from src.security.auth import Principal, Role
+from src.workers.booking import BookingMaintenance
 
 
 @pytest.fixture
@@ -222,6 +224,113 @@ def test_expired_hold_is_released_and_cannot_be_confirmed(booking_factory: sessi
     assert replacement.patient_id == PATIENT_2
 
 
+def _confirmed_appointment(booking_factory: sessionmaker[Session], *, suffix: str):
+    held = _call(booking_factory, "hold", slot_id=SLOT_1, patient_id=PATIENT, key=f"hold-{suffix}")
+    _call(
+        booking_factory,
+        "patient_confirm",
+        appointment_id=held.id,
+        patient_id=PATIENT,
+        key=f"confirm-{suffix}",
+    )
+    return _call(
+        booking_factory,
+        "staff_decide",
+        appointment_id=held.id,
+        staff_id=STAFF,
+        approve=True,
+        key=f"approve-{suffix}",
+    )
+
+
+def test_no_show_is_post_slot_staff_event_and_idempotent(booking_factory: sessionmaker[Session]) -> None:
+    confirmed = _confirmed_appointment(booking_factory, suffix="no-show")
+    with booking_factory() as session:
+        slot = session.get(Slot, confirmed.slot_id)
+        assert slot is not None
+        after_slot = slot.ends_at.replace(tzinfo=UTC) + timedelta(minutes=1)
+    with booking_factory() as session:
+        repository = BookingRepository(session, clock=lambda: after_slot)
+        no_show = repository.mark_no_show(appointment_id=confirmed.id, staff_id=STAFF, key="no-show-key")
+    assert no_show.status == "NO_SHOW"
+    with booking_factory() as session:
+        replay = BookingRepository(session, clock=lambda: after_slot).mark_no_show(
+            appointment_id=confirmed.id, staff_id=STAFF, key="no-show-key"
+        )
+    assert replay.status == "NO_SHOW"
+    with booking_factory() as session:
+        assert session.scalar(
+            select(AppointmentEvent).where(
+                AppointmentEvent.appointment_id == confirmed.id,
+                AppointmentEvent.action == "mark_no_show",
+            )
+        )
+
+
+def test_worker_schedules_and_delivers_idempotently_without_phi_analytics(
+    booking_factory: sessionmaker[Session],
+) -> None:
+    confirmed = _confirmed_appointment(booking_factory, suffix="worker")
+    with booking_factory() as session:
+        slot = session.get(Slot, confirmed.slot_id)
+        assert slot is not None
+        current = [slot.starts_at.replace(tzinfo=UTC) - timedelta(hours=23)]
+    worker = BookingMaintenance(booking_factory, clock=lambda: current[0])
+    assert worker.schedule_reminders() == 1
+    assert worker.schedule_reminders() == 0
+
+    class RecordingSink:
+        def __init__(self) -> None:
+            self.keys: set[str] = set()
+
+        def deliver(self, delivery_key: str, event_type: str, payload: dict[str, object]) -> None:
+            assert delivery_key not in self.keys
+            self.keys.add(delivery_key)
+
+    sink = RecordingSink()
+    reminder_result = worker.dispatch_reminders(sink)
+    outbox_result = worker.dispatch_outbox(sink)
+    assert reminder_result["delivered"] == 1
+    assert outbox_result["delivered"] == 3
+    assert worker.dispatch_reminders(sink)["claimed"] == 0
+    assert worker.dispatch_outbox(sink)["claimed"] == 0
+    analytics = worker.analytics_snapshot()
+    serialized = json.dumps(analytics)
+    assert "staff_approve" in serialized
+    assert PATIENT not in serialized
+    assert confirmed.id not in serialized
+
+
+def test_worker_retries_then_dead_letters_with_safe_error_code(
+    booking_factory: sessionmaker[Session],
+) -> None:
+    current = [datetime.now(UTC)]
+    with booking_factory.begin() as session:
+        session.add(
+            BookingOutbox(
+                aggregate_id="90000000-0000-0000-0000-000000000009",
+                event_type="appointment.test",
+                payload={"status": "TEST", "version": 1},
+                available_at=current[0],
+            )
+        )
+
+    class FailingSink:
+        def deliver(self, delivery_key: str, event_type: str, payload: dict[str, object]) -> None:
+            raise ConnectionError("sensitive provider response must not be stored")
+
+    worker = BookingMaintenance(booking_factory, clock=lambda: current[0], max_attempts=2)
+    assert worker.dispatch_outbox(FailingSink())["retried"] == 1
+    current[0] += timedelta(minutes=2)
+    assert worker.dispatch_outbox(FailingSink())["dead_lettered"] == 1
+    with booking_factory() as session:
+        row = session.scalar(select(BookingOutbox).where(BookingOutbox.event_type == "appointment.test"))
+        assert row is not None
+        assert row.last_error_code == "ConnectionError"
+        assert row.dead_lettered_at is not None
+        assert "sensitive" not in (row.last_error_code or "")
+
+
 def test_cancel_releases_slot_and_reschedule_rejection_keeps_original(
     booking_factory: sessionmaker[Session],
 ) -> None:
@@ -344,4 +453,11 @@ def test_booking_api_enforces_role_and_uses_authenticated_identity(
     assert created.status_code == 201
     assert created.json()["patient_id"] == PATIENT
     assert client.get("/api/v1/booking/staff/queue").status_code == 403
+    assert (
+        client.post(
+            f"/api/v1/booking/staff/appointments/{created.json()['id']}/no-show",
+            headers={"Idempotency-Key": "patient-no-show-forbidden"},
+        ).status_code
+        == 403
+    )
     assert client.get("/api/v1/booking/appointments").json()["items"][0]["id"] == created.json()["id"]

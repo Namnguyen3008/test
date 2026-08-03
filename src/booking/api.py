@@ -193,6 +193,27 @@ def propose_reschedule(
         raise
 
 
+@router.post("/staff/appointments/{appointment_id}/no-show", response_model=AppointmentView)
+def mark_no_show(
+    appointment_id: str,
+    session: SessionDependency,
+    context: MutationAuthDependency,
+    idempotency_key: IdempotencyKey,
+) -> AppointmentView:
+    principal = context.principal
+    _allow(principal, Role.STAFF, Role.ADMIN)
+    try:
+        value = BookingRepository(session).mark_no_show(
+            appointment_id=appointment_id,
+            staff_id=principal.user_id,
+            key=idempotency_key,
+        )
+        return _appointment_view(value, expose_patient_id=False)
+    except Exception as exc:
+        _translate_error(exc)
+        raise
+
+
 @router.post("/appointments/{appointment_id}/cancel", response_model=AppointmentView)
 def cancel(
     appointment_id: str,

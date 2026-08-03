@@ -305,6 +305,27 @@ class BookingRepository:
             self._remember(actor_id, "cancel", key, request, appointment)
             return appointment
 
+    def mark_no_show(self, *, appointment_id: str, staff_id: str, key: str) -> Appointment:
+        request = {"appointment_id": appointment_id}
+        with self.session.begin():
+            self._serialize_idempotency(staff_id, "mark_no_show", key)
+            replay = self._replay(staff_id, "mark_no_show", key, request)
+            if replay:
+                return self._appointment(replay["id"], lock=True)
+            appointment = self._appointment(appointment_id, lock=True)
+            slot = self.session.scalar(select(Slot).where(Slot.id == appointment.slot_id).with_for_update())
+            if appointment.status != "CONFIRMED" or slot is None or _as_utc(slot.ends_at) > _as_utc(self.clock()):
+                raise BookingInvalidTransitionError("No-show can only be recorded after a confirmed slot ends")
+            before = appointment.status
+            appointment.status = "NO_SHOW"
+            appointment.version += 1
+            appointment.updated_at = self.clock()
+            self._release_holds(appointment.id, now=appointment.updated_at)
+            self._event(appointment, staff_id, "mark_no_show", before)
+            self._outbox(appointment, "appointment.no_show")
+            self._remember(staff_id, "mark_no_show", key, request, appointment)
+            return appointment
+
     def detail(self, appointment_id: str) -> Appointment:
         self.expire_due()
         return self._appointment(appointment_id)

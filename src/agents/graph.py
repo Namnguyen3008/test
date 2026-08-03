@@ -1,28 +1,22 @@
 from langgraph.graph import END, StateGraph
 
-from src.agents.nodes.example_node import analyze_node, respond_node
+from src.agents.nodes.example_node import emergency_node, normalize_node, respond_node
 from src.agents.state import AgentState
 
 
-def should_continue(state: AgentState) -> str:
-    """Route based on whether an error occurred during analysis."""
-    if state.get("error"):
-        return END
-    return "respond"
+def route_after_emergency(state: AgentState) -> str:
+    return END if state.get("emergency") else "respond"
 
 
-def build_graph() -> StateGraph:
+def build_graph():
     graph = StateGraph(AgentState)
-
-    # Add nodes
-    graph.add_node("analyze", analyze_node)
+    graph.add_node("normalize", normalize_node)
+    graph.add_node("emergency", emergency_node)
     graph.add_node("respond", respond_node)
-
-    # Add edges
-    graph.set_entry_point("analyze")
-    graph.add_conditional_edges("analyze", should_continue)
+    graph.set_entry_point("normalize")
+    graph.add_edge("normalize", "emergency")
+    graph.add_conditional_edges("emergency", route_after_emergency)
     graph.add_edge("respond", END)
-
     return graph.compile()
 
 

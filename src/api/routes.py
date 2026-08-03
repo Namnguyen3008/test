@@ -13,7 +13,8 @@ async def chat(request: ChatRequest) -> ChatResponse:
         result = await agent.ainvoke({"query": request.message})
         return ChatResponse(
             response=result.get("response", ""),
-            analysis=result.get("analysis", ""),
+            emergency=result.get("emergency", False),
+            metadata=result.get("metadata", {}),
         )
     except Exception as exc:
         raise HTTPException(

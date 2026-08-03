@@ -1,25 +1,34 @@
 from src.agents.state import AgentState
+from src.services.emergency import screen_emergency
 from src.services.llm import get_llm
 
+DISCLAIMER = "Thông tin này chỉ hỗ trợ định hướng chuyên khoa, không thay thế chẩn đoán hoặc điều trị của bác sĩ."
 
-async def analyze_node(state: AgentState) -> dict:
-    """Prepare lightweight context before generating the answer."""
-    query = state.get("query", "")
-    return {"analysis": f"User request: {query}"}
+
+async def normalize_node(state: AgentState) -> dict:
+    return {"query": state.get("query", "").strip()}
+
+
+async def emergency_node(state: AgentState) -> dict:
+    result = screen_emergency(state.get("query", ""))
+    if not result.emergency:
+        return {"emergency": False}
+    return {
+        "emergency": True,
+        "response": result.action,
+        "metadata": {"emergency_rule_ids": result.rule_ids, "routine_booking_blocked": True},
+    }
 
 
 async def respond_node(state: AgentState) -> dict:
-    """Generate a response through the restricted Gemini router."""
-    error = state.get("error")
-    if error:
-        return {"response": f"Error: {error}"}
-
-    query = state.get("query", "")
-    result = await get_llm().generate(query)
+    result = await get_llm().generate(state.get("query", ""), purpose="routing")
+    response = result.text if result.handoff else f"{result.text}\n\n{DISCLAIMER}"
     return {
-        "response": result.text,
+        "response": response,
         "metadata": {
             "model": result.model,
-            "quota_failover": result.failed_over,
+            "failed_over": result.failed_over,
+            "handoff": result.handoff,
+            "model_call_id": result.model_call_id,
         },
     }

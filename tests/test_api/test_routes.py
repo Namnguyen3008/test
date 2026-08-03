@@ -4,7 +4,7 @@ from src.services.llm import GeminiResult
 
 
 class FakeGemini:
-    async def generate(self, prompt: str) -> GeminiResult:
+    async def generate(self, prompt: str, *, purpose: str = "response") -> GeminiResult:
         return GeminiResult(text="Hello from Gemini", model="gemini-3.5-flash-lite")
 
 
@@ -27,7 +27,8 @@ async def test_chat_uses_gemini(client, monkeypatch):
     monkeypatch.setattr("src.agents.nodes.example_node.get_llm", lambda: FakeGemini())
     response = await client.post("/api/v1/chat", json={"message": "Hello"})
     assert response.status_code == 200
-    assert response.json()["response"] == "Hello from Gemini"
+    assert response.json()["response"].startswith("Hello from Gemini")
+    assert "analysis" not in response.json()
 
 
 @pytest.mark.asyncio

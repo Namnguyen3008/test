@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     emergency_catalog_path: str = "data/staging/vmec_catalog.sqlite3"
     emergency_release_id: str = ""
     approved_corpus_manifest_path: str = "data/source/APPROVED_CORPUS_MANIFEST.json"
+    governance_trust_registry_path: str = ""
+    governance_evidence_path: str = ""
 
     # Database
     database_url: str = "sqlite:///./data/app.db"
@@ -83,6 +85,10 @@ class Settings(BaseSettings):
             raise ValueError("Production requires PostgreSQL persistence")
         if self.app_env == "production" and not self.session_redis_url.startswith(("redis://", "rediss://")):
             raise ValueError("Production requires Redis-backed sessions")
+        if self.app_env == "production" and (
+            not self.governance_trust_registry_path or not self.governance_evidence_path
+        ):
+            raise ValueError("Production requires external governance trust and evidence paths")
         return self
 
 

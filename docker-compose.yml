@@ -14,7 +14,6 @@ x-runtime: &runtime
 x-backend-environment: &backend-environment
   APP_ENV: development
   APP_DATA_MODE: development
-  DATABASE_URL: postgresql+psycopg://vmec:vmec@postgres:5432/vmec
   REDIS_URL: redis://redis:6379/0
   SESSION_REDIS_URL: redis://redis:6379/1
   RETRIEVAL_RUNTIME_MODE: postgres
@@ -52,7 +51,9 @@ services:
     <<: *runtime
     build: { context: ., dockerfile: Dockerfile }
     command: ["alembic", "upgrade", "head"]
-    environment: *backend-environment
+    environment:
+      <<: *backend-environment
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:-postgresql+psycopg://vmec:vmec@postgres:5432/vmec}
     depends_on:
       postgres: { condition: service_healthy }
 
@@ -62,6 +63,7 @@ services:
     command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       <<: *backend-environment
+      DATABASE_URL: ${API_DATABASE_URL:?set API_DATABASE_URL to a vmec_api member login}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     volumes:
       - ./data:/app/data:ro
@@ -80,7 +82,9 @@ services:
     <<: *runtime
     build: { context: ., dockerfile: Dockerfile }
     command: ["python", "-m", "apps.worker"]
-    environment: *backend-environment
+    environment:
+      <<: *backend-environment
+      DATABASE_URL: ${WORKER_DATABASE_URL:?set WORKER_DATABASE_URL to a vmec_worker member login}
     volumes:
       - ./data:/app/data:ro
       - reports:/app/data/reports
@@ -93,7 +97,9 @@ services:
     build: { context: ., dockerfile: Dockerfile }
     command:
       ["celery", "-A", "apps.worker.__main__:app", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
-    environment: *backend-environment
+    environment:
+      <<: *backend-environment
+      DATABASE_URL: ${WORKER_DATABASE_URL:?set WORKER_DATABASE_URL to a vmec_worker member login}
     volumes:
       - ./data:/app/data:ro
       - reports:/app/data/reports

@@ -139,7 +139,14 @@ class TrustedKey(StrictModel):
     key_id: HexDigest
     algorithm: Literal["Ed25519"]
     public_key_base64: str
-    capabilities: list[Literal["APPROVAL_MANIFEST", "PROMOTION_RECEIPT"]]
+    capabilities: list[
+        Literal[
+            "APPROVAL_MANIFEST",
+            "PROMOTION_RECEIPT",
+            "GOVERNANCE_SUPERSESSION",
+            "GOVERNANCE_REVOCATION",
+        ]
+    ]
     valid_from: datetime
     not_after: datetime | None = None
     revoked_at: datetime | None = None
@@ -172,15 +179,18 @@ class TrustRegistry(StrictModel):
         return self
 
     def approval_key(self, key_id: str, *, issued_at: datetime, now: datetime) -> TrustedKey:
+        return self.capability_key(key_id, "APPROVAL_MANIFEST", issued_at=issued_at, now=now)
+
+    def capability_key(self, key_id: str, capability: str, *, issued_at: datetime, now: datetime) -> TrustedKey:
         key = next((candidate for candidate in self.keys if candidate.key_id == key_id), None)
-        if key is None or "APPROVAL_MANIFEST" not in key.capabilities:
-            raise ValueError("approval key is not trusted for this capability")
+        if key is None or capability not in key.capabilities:
+            raise ValueError("key is not trusted for this capability")
         issued_at = issued_at.astimezone(UTC)
         now = now.astimezone(UTC)
         if issued_at < key.valid_from.astimezone(UTC) or (key.not_after and issued_at > key.not_after.astimezone(UTC)):
-            raise ValueError("approval key was outside its validity window")
+            raise ValueError("key was outside its validity window")
         if key.revoked_at is not None and key.revoked_at.astimezone(UTC) <= now:
-            raise ValueError("approval key is revoked")
+            raise ValueError("key is revoked")
         return key
 
 

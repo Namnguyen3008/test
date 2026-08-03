@@ -34,8 +34,13 @@ spec:
             - { name: EMERGENCY_CATALOG_PATH, value: "/runtime-data/vmec_catalog.sqlite3" }
             - { name: EMERGENCY_RELEASE_ID, value: {{ $.Values.config.emergencyReleaseId | quote }} }
             - { name: APPROVED_CORPUS_MANIFEST_PATH, value: "/runtime-data/APPROVED_CORPUS_MANIFEST.json" }
+            - { name: GOVERNANCE_TRUST_REGISTRY_PATH, value: "/runtime-data/governance-trust-registry.json" }
+            - { name: GOVERNANCE_EVIDENCE_PATH, value: "/runtime-data/governance-evidence.json" }
             - name: DATABASE_URL
-              valueFrom: { secretKeyRef: { name: {{ $.Values.config.databaseUrlSecret }}, key: database-url } }
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if eq $name "api" }}{{ $.Values.config.apiDatabaseUrlSecret }}{{ else }}{{ $.Values.config.workerDatabaseUrlSecret }}{{ end }}
+                  key: database-url
             - name: REDIS_URL
               valueFrom: { secretKeyRef: { name: {{ $.Values.config.redisUrlSecret }}, key: redis-url } }
             - name: SESSION_REDIS_URL

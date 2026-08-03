@@ -9,7 +9,9 @@ config:
   publicApiUrl: https://api.vmec.example.invalid
   corsOrigins: https://vmec.example.invalid
   emergencyReleaseId: vmec-production-v1
-  databaseUrlSecret: vmec-runtime
+  apiDatabaseUrlSecret: vmec-api-database
+  workerDatabaseUrlSecret: vmec-worker-database
+  migrationDatabaseUrlSecret: vmec-migration-database
   redisUrlSecret: vmec-runtime
   applicationSecret: vmec-application
   geminiKeySecret: vmec-gemini

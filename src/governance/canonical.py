@@ -10,6 +10,8 @@ from typing import Any
 
 APPROVAL_DOMAIN = b"VMEC\x00governance-approval\x00v1\x00"
 RECEIPT_DOMAIN = b"VMEC\x00governance-promotion-receipt\x00v1\x00"
+SUPERSESSION_DOMAIN = b"VMEC\x00governance-supersession\x00v1\x00"
+REVOCATION_DOMAIN = b"VMEC\x00governance-revocation\x00v1\x00"
 
 
 class DuplicateKeyError(ValueError):
@@ -67,10 +69,21 @@ def digest(value: Mapping[str, Any]) -> str:
     return hashlib.sha256(canonical_json(value)).hexdigest()
 
 
-def signature_payload(value: Mapping[str, Any], *, receipt: bool = False) -> bytes:
+def signature_payload(
+    value: Mapping[str, Any], *, receipt: bool = False, domain: str | None = None
+) -> bytes:
     clone = json.loads(canonical_json(value))
     signature = clone.get("signature")
     if not isinstance(signature, dict) or "value_base64" not in signature:
         raise ValueError("signature envelope is missing")
     signature["value_base64"] = ""
-    return (RECEIPT_DOMAIN if receipt else APPROVAL_DOMAIN) + canonical_json(clone)
+    domains = {
+        "approval": APPROVAL_DOMAIN,
+        "receipt": RECEIPT_DOMAIN,
+        "supersession": SUPERSESSION_DOMAIN,
+        "revocation": REVOCATION_DOMAIN,
+    }
+    selected = "receipt" if receipt else (domain or "approval")
+    if selected not in domains:
+        raise ValueError("unknown signed artifact domain")
+    return domains[selected] + canonical_json(clone)

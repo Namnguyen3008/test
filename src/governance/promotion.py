@@ -150,8 +150,7 @@ class GovernancePromotionRepository:
                 "ARRAY(SELECT krs.source_id FROM knowledge_record_sources krs "
                 "WHERE krs.record_id=kr.id ORDER BY krs.source_id) "
                 "FROM knowledge_records kr JOIN dataset_releases dr ON dr.id=kr.release_id "
-                "WHERE dr.logical_release_id = ANY(:release_ids) AND dr.status='completed' "
-                "FOR UPDATE OF kr"
+                "WHERE dr.logical_release_id = ANY(:release_ids) AND dr.status='completed'"
             ),
             {"release_ids": release_ids},
         )
@@ -251,7 +250,14 @@ class GovernancePromotionRepository:
             )
             promotion_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"vmec-promotion:{manifest_digest}"))
             production_release_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"vmec-production-release:{manifest_digest}"))
-            production_logical_id = "vmec-production-v1"
+            active_route_exists = session.execute(
+                text("SELECT 1 FROM governance_release_routes WHERE route_name='vmec-production-v1'")
+            ).scalar_one_or_none()
+            production_logical_id = (
+                f"vmec-production-candidate-{manifest_digest[:16]}"
+                if active_route_exists
+                else "vmec-production-v1"
+            )
             source_hashes = json.dumps(
                 {
                     "governance_manifest_digest": manifest_digest,
@@ -435,5 +441,13 @@ class GovernancePromotionRepository:
                     "WHERE manifest_id=:manifest_id"
                 ),
                 {"promoted_at": current, "manifest_id": manifest.manifest_id},
+            )
+            session.execute(
+                text(
+                    "INSERT INTO governance_release_routes(route_name,project_id,state,generation,active_release_id,"
+                    "active_manifest_id,transitioned_at) VALUES('vmec-production-v1','VMEC-01','ACTIVE',1,"
+                    ":release_id,:manifest_id,:at) ON CONFLICT DO NOTHING"
+                ),
+                {"release_id": production_release_id, "manifest_id": manifest.manifest_id, "at": current},
             )
             return receipt

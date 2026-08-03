@@ -343,6 +343,30 @@ class PersistentCatalogImporter:
         if not 1 <= batch_size <= 1_000:
             raise ValueError("Persistent import batch size is outside the safe bound")
         plan = projection.plan()
+        expected_hashes = {"catalog_source_hash": projection.source_hash()}
+        with self._factory() as session:
+            completed = session.execute(
+                text("SELECT logical_release_id,mode,source_hashes,registry_digest,imported_records FROM dataset_releases WHERE id=:id AND status='completed'"),
+                {"id": projection.release_id},
+            ).one_or_none()
+        if completed is not None:
+            if (
+                str(completed[0]) != projection.logical_release_id
+                or str(completed[1]) != projection.mode
+                or dict(completed[2]) != expected_hashes
+                or str(completed[3]) != plan.registry_digest
+                or int(completed[4]) != plan.eligible_count
+            ):
+                raise RuntimeError("Completed persistent release does not match the immutable import plan")
+            return PersistentImportResult(
+                release_id=projection.release_id,
+                job_id=self.job_id(projection.release_id),
+                logical_release_id=projection.logical_release_id,
+                eligible_records=plan.eligible_count,
+                processed_records=0,
+                processed_chunks=0,
+                registry_digest=plan.registry_digest,
+            )
         job_id = self._prepare(projection, plan)
         inserted_records = 0
         inserted_chunks = 0

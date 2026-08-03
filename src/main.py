@@ -12,6 +12,8 @@ from src.api.operations_routes import router as operations_router
 from src.api.routes import router
 from src.booking.api import router as booking_router
 from src.config import get_settings
+from src.governance.canonical import digest, strict_json_loads
+from src.governance.manifest import GovernanceManifest, TrustRegistry, verify_evidence, verify_manifest
 from src.observability import configure_observability
 from src.persistence.database import get_engine
 from src.review.api import router as review_router
@@ -30,7 +32,12 @@ from src.services.routing import get_routing_retriever
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    validate_data_readiness(settings.app_data_mode)
+    validate_data_readiness(
+        settings.app_data_mode,
+        settings.approved_corpus_manifest_path,
+        settings.governance_trust_registry_path,
+        settings.governance_evidence_path,
+    )
     initialize_emergency_runtime(settings.app_data_mode, settings.emergency_catalog_path, settings.emergency_release_id)
     try:
         yield
@@ -52,10 +59,26 @@ async def lifespan(app: FastAPI):
             get_routing_retriever.cache_clear()
 
 
-def validate_data_readiness(data_mode: DataMode, approved_manifest_path: str | None = None) -> None:
+def validate_data_readiness(
+    data_mode: DataMode,
+    approved_manifest_path: str | None = None,
+    trust_registry_path: str | None = None,
+    evidence_path: str | None = None,
+) -> None:
     manifest = Path(approved_manifest_path or get_settings().approved_corpus_manifest_path)
-    if data_mode == "production" and not manifest.is_file():
-        raise RuntimeError("Production data mode requires an approved corpus manifest")
+    if data_mode != "production":
+        return
+    registry = Path(trust_registry_path or get_settings().governance_trust_registry_path)
+    evidence = Path(evidence_path or get_settings().governance_evidence_path)
+    if not all(path.is_file() and not path.is_symlink() for path in (manifest, registry, evidence)):
+        raise RuntimeError("Production data mode requires verified governance artifacts")
+    try:
+        parsed_manifest = GovernanceManifest.model_validate(strict_json_loads(manifest.read_text(encoding="utf-8")))
+        parsed_registry = TrustRegistry.model_validate(strict_json_loads(registry.read_text(encoding="utf-8")))
+        verify_manifest(parsed_manifest, parsed_registry)
+        verify_evidence(parsed_manifest, evidence)
+    except Exception as exc:
+        raise RuntimeError("Production governance artifacts failed cryptographic verification") from exc
 
 
 def initialize_emergency_runtime(data_mode: DataMode, catalog_path: str, release_id: str = "") -> None:
@@ -119,7 +142,17 @@ async def readiness():
                         text("SELECT extname FROM pg_extension WHERE extname IN ('vector','pg_trgm','unaccent')")
                     )
                 )
-            if migration != "20260803_0009_governance_bridge" or extensions != {"vector", "pg_trgm", "unaccent"}:
+                active_route = 1
+                if settings.app_data_mode == "production":
+                    manifest = GovernanceManifest.model_validate(
+                        strict_json_loads(Path(settings.approved_corpus_manifest_path).read_text(encoding="utf-8"))
+                    )
+                    manifest_digest = digest(manifest.model_dump(mode="json"))
+                    active_route = connection.scalar(
+                        text("SELECT count(*) FROM governance_release_routes grr JOIN governance_manifests gm ON gm.manifest_id=grr.active_manifest_id WHERE grr.route_name='vmec-production-v1' AND grr.state='ACTIVE' AND grr.active_release_id IS NOT NULL AND gm.manifest_id=:manifest_id AND gm.manifest_digest=:manifest_digest AND gm.status='PROMOTED'"),
+                        {"manifest_id": manifest.manifest_id, "manifest_digest": manifest_digest},
+                    )
+            if migration != "20260803_0010_signed_lifecycle_least_privilege" or extensions != {"vector", "pg_trgm", "unaccent"} or active_route != 1:
                 raise RuntimeError("persistent schema is incomplete")
             redis = Redis.from_url(settings.redis_url)
             sessions = Redis.from_url(settings.session_redis_url)

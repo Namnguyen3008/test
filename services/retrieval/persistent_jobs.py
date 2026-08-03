@@ -36,8 +36,14 @@ _ELIGIBLE_TABLES: Final = (
 _TABLE_SQL: Final = ",".join(f"'{value}'" for value in _ELIGIBLE_TABLES)
 _ELIGIBILITY_SQL: Final = f"""
     kr.release_id = (
-      SELECT id FROM dataset_releases
-      WHERE logical_release_id = :release_id AND status = 'completed'
+      SELECT CASE
+        WHEN :data_mode = 'production' AND :release_id = 'vmec-production-v1' THEN (
+          SELECT active_release_id FROM governance_release_routes
+          WHERE route_name='vmec-production-v1' AND state='ACTIVE'
+        )
+        ELSE (SELECT id FROM dataset_releases
+              WHERE logical_release_id = :release_id AND status = 'completed')
+      END
     )
     AND kr.mode = :data_mode
     AND kr.origin_table IN ({_TABLE_SQL})

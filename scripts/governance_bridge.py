@@ -16,6 +16,8 @@ from sqlalchemy.orm import sessionmaker
 
 from src.governance.canonical import canonical_json, signature_payload, strict_json_loads
 from src.governance.catalog import build_governance_draft
+from src.governance.lifecycle import GovernanceRevocation, GovernanceSupersession, verify_lifecycle_artifact
+from src.governance.lifecycle_repository import GovernanceLifecycleRepository
 from src.governance.manifest import GovernanceManifest, TrustRegistry, verify_evidence, verify_manifest, verify_receipt
 from src.governance.promotion import GovernancePromotionRepository
 
@@ -129,6 +131,33 @@ def _promote(arguments: argparse.Namespace) -> dict[str, object]:
     }
 
 
+def _lifecycle_artifact(path: Path):
+    raw = _read_object(path)
+    schema = raw.get("schema_version")
+    if schema == "vmec.governance-supersession.v1":
+        return GovernanceSupersession.model_validate(raw)
+    if schema == "vmec.governance-revocation.v1":
+        return GovernanceRevocation.model_validate(raw)
+    raise ValueError("unsupported governance lifecycle schema")
+
+
+def _verify_lifecycle(arguments: argparse.Namespace) -> dict[str, object]:
+    artifact = _lifecycle_artifact(Path(arguments.artifact))
+    artifact_digest = verify_lifecycle_artifact(artifact, _registry(Path(arguments.registry)))
+    return {"status": "VERIFIED", "artifact_id": artifact.artifact_id, "artifact_digest": artifact_digest}
+
+
+def _apply_lifecycle(arguments: argparse.Namespace) -> dict[str, object]:
+    database_url = arguments.database_url or os.environ.get("GOVERNANCE_DATABASE_URL", "")
+    if not database_url.startswith(("postgresql://", "postgresql+")):
+        raise RuntimeError("dedicated PostgreSQL governance database URL is absent")
+    artifact = _lifecycle_artifact(Path(arguments.artifact))
+    registry = _registry(Path(arguments.registry))
+    engine = create_engine(database_url, pool_pre_ping=True)
+    transition = GovernanceLifecycleRepository(sessionmaker(engine, expire_on_commit=False)).apply(artifact, registry)
+    return {"status": "APPLIED", **transition}
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     commands = result.add_subparsers(dest="command", required=True)
@@ -158,6 +187,15 @@ def parser() -> argparse.ArgumentParser:
     promote.add_argument("--database-url")
     promote.add_argument("--receipt-output")
     promote.set_defaults(handler=_promote)
+    verify_lifecycle = commands.add_parser("verify-lifecycle")
+    verify_lifecycle.add_argument("--artifact", required=True)
+    verify_lifecycle.add_argument("--registry", required=True)
+    verify_lifecycle.set_defaults(handler=_verify_lifecycle)
+    apply_lifecycle = commands.add_parser("apply-lifecycle")
+    apply_lifecycle.add_argument("--artifact", required=True)
+    apply_lifecycle.add_argument("--registry", required=True)
+    apply_lifecycle.add_argument("--database-url")
+    apply_lifecycle.set_defaults(handler=_apply_lifecycle)
     return result
 
 

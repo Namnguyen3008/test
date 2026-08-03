@@ -113,7 +113,7 @@ These omissions keep `INFRA_VERIFIED`, `EMBEDDING_BACKFILL_COMPLETE`, `DATA_APPR
 | Policy classifier | `pytest tests/test_retrieval/test_governance_classification.py -q` | PASS — exact safety/table/tier markers; ordinary and loose name matches never become GOLD. |
 | Real catalog contract | `pytest tests/integration/test_governance_catalog_contract.py -q` | PASS read-only — 15,511 eligible, 12,345 GOLD, 3,166 ACCEPTED, 528 safety, 947 sources, expected source/registry digests. |
 | Draft idempotency | two consecutive `governance_bridge draft` generations plus SHA-256 | PASS — byte-identical ignored draft; no source mutation. |
-| Migration graph | `alembic heads`; `alembic upgrade head --sql` | PASS offline — one head `20260803_0009_governance_bridge`, 51,580-byte base-to-head SQL. Real PostgreSQL application NOT RUN. |
+| Migration graph | `alembic heads`; `alembic upgrade head --sql` | PASS offline — one head `20260803_0009_governance_bridge`, 51,598-byte base-to-head SQL. Real PostgreSQL application NOT RUN. |
 | Python format/lint/type | Ruff across source/tests; mypy across source | PASS — 129 formatted files, lint clean, 68 typed source files. |
 | Full Python suite | `python -m pytest -q` | PASS — 173 passed, 7 skipped, one deprecation warning. Skips are not PASS. |
 | Web regression | lint, typecheck, Vitest, production build, `npm audit --audit-level=high` | PASS — 5 unit tests, all routes built and zero vulnerabilities. |

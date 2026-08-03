@@ -1,26 +1,25 @@
 from src.agents.state import AgentState
+from src.services.llm import get_llm
 
 
 async def analyze_node(state: AgentState) -> dict:
-    """Phân tích query từ user."""
+    """Prepare lightweight context before generating the answer."""
     query = state.get("query", "")
-
-    # TODO: Thêm logic phân tích thực tế
-    # Ví dụ: gọi LLM, search vector DB, etc.
-    analysis = f"Phân tích: {query}"
-
-    return {"analysis": analysis}
+    return {"analysis": f"User request: {query}"}
 
 
 async def respond_node(state: AgentState) -> dict:
-    """Tạo response từ analysis."""
-    analysis = state.get("analysis", "")
+    """Generate a response through the restricted Gemini router."""
     error = state.get("error")
-
     if error:
-        return {"response": f"Lỗi: {error}"}
+        return {"response": f"Error: {error}"}
 
-    # TODO: Thêm logic tạo response thực tế
-    response = f"Kết quả dựa trên phân tích: {analysis}"
-
-    return {"response": response}
+    query = state.get("query", "")
+    result = await get_llm().generate(query)
+    return {
+        "response": result.text,
+        "metadata": {
+            "model": result.model,
+            "quota_failover": result.failed_over,
+        },
+    }

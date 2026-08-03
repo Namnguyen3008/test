@@ -15,8 +15,11 @@ async def chat(request: ChatRequest) -> ChatResponse:
             response=result.get("response", ""),
             analysis=result.get("analysis", ""),
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="AI service is temporarily unavailable",
+        ) from exc
 
 
 @router.get("/status")

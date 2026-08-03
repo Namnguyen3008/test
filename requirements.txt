@@ -7,8 +7,8 @@ python-dotenv>=1.0.0
 
 # AI / LangChain
 langchain>=0.3.0
-langchain-openai>=0.3.0
 langgraph>=0.2.0
+google-genai>=2.16.0,<3.0.0
 
 # Database (uncomment as needed)
 # sqlalchemy>=2.0.0

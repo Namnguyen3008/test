@@ -3,7 +3,13 @@
 # Run once after cloning: bash scripts/setup_hooks.sh
 set -e
 
-HOOK_FILE=".git/hooks/pre-push"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+HOOK_FILE="$(git -C "$REPO_ROOT" rev-parse --git-path hooks/pre-push)"
+case "$HOOK_FILE" in
+  /*) ;;
+  *) HOOK_FILE="$REPO_ROOT/$HOOK_FILE" ;;
+esac
+mkdir -p "$(dirname "$HOOK_FILE")"
 
 cat > "$HOOK_FILE" <<'EOF'
 #!/usr/bin/env bash
@@ -19,7 +25,7 @@ chmod +x "$HOOK_FILE"
 chmod +x scripts/_pyrun.sh 2>/dev/null || true
 echo "[ai-log] Git pre-push hook installed."
 
-mkdir -p .ai-log
-touch .ai-log/.gitkeep
+mkdir -p "$REPO_ROOT/.ai-log"
+touch "$REPO_ROOT/.ai-log/.gitkeep"
 
 echo "[ai-log] Setup complete. Configure AI_LOG_SERVER in your .env file."

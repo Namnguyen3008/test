@@ -5,20 +5,29 @@ REM Exits 0 silently if no Python is found - hooks must never block the AI tool.
 
 where py >nul 2>nul
 if %ERRORLEVEL%==0 (
-  py -3 %*
-  exit /b %ERRORLEVEL%
+  py -3 -c "import sys; raise SystemExit(sys.version_info.major != 3)" >nul 2>nul
+  if %ERRORLEVEL%==0 (
+    py -3 %*
+    exit /b %ERRORLEVEL%
+  )
 )
 
 where python >nul 2>nul
 if %ERRORLEVEL%==0 (
-  python %*
-  exit /b %ERRORLEVEL%
+  python -c "import sys; raise SystemExit(sys.version_info.major != 3)" >nul 2>nul
+  if %ERRORLEVEL%==0 (
+    python %*
+    exit /b %ERRORLEVEL%
+  )
 )
 
 where python3 >nul 2>nul
 if %ERRORLEVEL%==0 (
-  python3 %*
-  exit /b %ERRORLEVEL%
+  python3 -c "import sys; raise SystemExit(sys.version_info.major != 3)" >nul 2>nul
+  if %ERRORLEVEL%==0 (
+    python3 %*
+    exit /b %ERRORLEVEL%
+  )
 )
 
 exit /b 0

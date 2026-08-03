@@ -17,7 +17,7 @@ async def client():
 
 @pytest.fixture
 def mock_llm():
-    """Mock LLM to avoid calling OpenAI during tests.
+    """Mock LLM to avoid calling Gemini during tests.
 
     Usage in test:
         def test_something(mock_llm):

@@ -1,0 +1,15 @@
+[[sources]]
+id = "p208_sqlite"
+description = "P-208 local development SQLite database"
+dsn = "sqlite:///D:/ALL ABOUT PROJECT/PROJECT/P-208/data/app.db"
+lazy = true
+
+[[tools]]
+name = "execute_sql"
+source = "p208_sqlite"
+readonly = true
+max_rows = 500
+
+[[tools]]
+name = "search_objects"
+source = "p208_sqlite"

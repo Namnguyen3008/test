@@ -19,13 +19,18 @@ Examples:
   # Quick interactive mode
   python scripts/log_manual.py
 """
+import argparse
 import json
 import os
-import sys
 import subprocess
-import argparse
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+try:
+    from .log_redaction import sanitize_value
+except ImportError:
+    from log_redaction import sanitize_value
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -82,7 +87,7 @@ def main():
     if not student:
         student = os.environ.get("USERNAME", os.environ.get("USER", "unknown"))
         print(f"[log] ⚠️  git email not set! Using fallback: {student}", file=sys.stderr)
-        print(f"[log] Run: git config user.email \"your@vinuni.edu.vn\"", file=sys.stderr)
+        print("[log] Run: git config user.email \"your@vinuni.edu.vn\"", file=sys.stderr)
 
     entry = {
         "ts": ts,
@@ -97,6 +102,7 @@ def main():
         "prompt": prompt[:1000],
         "response_summary": result[:500] if result else "",
     }
+    entry = sanitize_value(entry)
 
     log_dir = Path(os.environ.get("AI_LOG_DIR", ".ai-log"))
     log_dir.mkdir(exist_ok=True)

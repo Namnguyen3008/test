@@ -55,6 +55,19 @@ out/
 *.pyc
 *.pyo
 
+# Local QA / rendered-document artifacts
+tmp/
+
 # AI logs — tracked structure, ignored content
 .ai-log/*.jsonl
 .ai-log/archive/
+
+# VMEC private/immutable data and generated runtime artifacts
+data/source/*
+!data/source/.gitkeep
+data/staging/
+data/reports/
+var/
+.env
+.env.*.local
+.codex/runs/

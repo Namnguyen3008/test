@@ -73,5 +73,6 @@ data/reports/
 var/
 .env
 .env.*.local
+.secrets/
 .codex/runs/
 .codex/plans/

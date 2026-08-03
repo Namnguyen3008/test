@@ -150,3 +150,18 @@ Final local UI verification: npm audit/lint/typecheck PASS, Vitest `5 passed`, N
 Playwright `3 passed` in 14.5 seconds. Browser inspection rendered the development safety banner and portal
 accessibility tree with zero console warning/error. Browser form event behavior was not promoted to evidence because
 the in-app control surface kept the submit control disabled; the independent Playwright flow is the recorded PASS.
+
+## 2026-08-03 Asia/Saigon — V8 bootstrap evidence
+
+| Check | Result |
+|---|---|
+| V8 ZIP guarded extraction | PASS — 14 entries, source hash unchanged, pack payload and V7 basis hashes verified. |
+| User-scope tool installs | PASS — official Winget packages/hash verification: kubectl 1.36.3, Helm 4.2.3, kind 0.32.0, age 1.3.1. |
+| Docker CLI configuration | PASS — secret-aware `docker compose config --quiet` validates. Docker Engine health is NOT RUN/PASS; bounded probe timed out. |
+| Helm offline validation | PASS — `helm lint` and namespace template rendering pass. |
+| kind cluster | NOT RUN — Docker Engine unavailable. |
+| Local secret/key/backup setup | PREPARED — ignored current-user ACL store, random local credentials, four keypairs, unsigned templates, and age key. No secrets printed. |
+| V8 local provisioner/backup code | PASS — Ruff, mypy and four focused tests. |
+| Full Python suite after V8 remediation | PASS — `186 passed, 16 skipped`, one dependency deprecation warning. Skips are not PASS. |
+| Local age encryption preflight | PASS — in-memory round trip through the ACL-protected generated age identity/recipient; only the encrypted non-sensitive preflight artifact remains. This is not a PostgreSQL backup/restore drill. |
+| PostgreSQL/Redis/migrations/role tests/imports/promotion/embeddings/E2E/restore/staging | NOT RUN — blocked by the documented Windows UAC/reboot prerequisite and later real human authorization gates. |

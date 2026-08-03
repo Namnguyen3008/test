@@ -124,6 +124,21 @@ DATA_APPROVED=false
 PRODUCTION_READY=false
 ```
 
+## V8 external-stack bootstrap — 2026-08-03 Asia/Saigon
+
+V8 archive extraction is guarded and the original SHA-256 is unchanged. All payload and V7 baseline hashes matched.
+kubectl, Helm, kind and age were installed user-scope from official Winget manifests with verified installer hashes.
+Docker Desktop was already installed; its daemon is not responsive because WSL/Virtual Machine Platform features are
+disabled. `docs/blockers/V8_WSL_ADMIN_ACTION.md` is the one precise UAC/reboot action; no elevation bypass or reboot
+was attempted.
+
+An ignored, current-user ACL-restricted V8 secret store now holds random local credentials/key material, unsigned
+templates and local backup encryption material. Compose has an explicit post-migration local LOGIN provisioner,
+encrypted backup/restore helper and static contracts. Helm lint/template pass offline; Docker/kind/real PostgreSQL,
+Redis, imports, role tests, promotion, embeddings, E2E, restore and staging are NOT RUN.
+
+See `docs/NEXT_PHASE_V8_EXECUTION.md` for exact evidence and flags.
+
 ## V7 final-production code update — 2026-08-03 16:37 Asia/Saigon
 
 This append-only entry supersedes V6's signed lifecycle and least-privilege code gaps, but not its real-runtime or
@@ -325,6 +340,37 @@ GOVERNANCE_MANIFEST_VERIFIED=false
 DATA_PROMOTION_COMPLETE=false
 SUPERSESSION_REVOCATION_COMPLETE=false
 DATABASE_LEAST_PRIVILEGE_VERIFIED=false
+EMBEDDING_SMOKE_COMPLETE=false
+EMBEDDING_BACKFILL_COMPLETE=false
+REAL_STACK_E2E_COMPLETE=false
+SECURITY_LOAD_RESILIENCE_COMPLETE=false
+BACKUP_RESTORE_VERIFIED=false
+DATA_APPROVED=false
+STAGING_VERIFIED=false
+PRODUCTION_CUTOVER_COMPLETE=false
+OPERATIONS_HANDOVER_COMPLETE=false
+PRODUCTION_READY=false
+```
+
+## V8 authoritative current state — 2026-08-03 Asia/Saigon
+
+V8 toolchain and local-rehearsal preparation is recorded in `docs/NEXT_PHASE_V8_EXECUTION.md`. The UAC/reboot
+prerequisite is isolated in the sole action document `docs/blockers/V8_WSL_ADMIN_ACTION.md`; all independent local
+work has continued. Full post-V8 offline regression is `186 passed, 16 skipped`; skips remain not-run infrastructure
+contracts.
+
+```text
+TOOLCHAIN_READY=false
+DOCKER_COMPOSE_VERIFIED=false
+KUBERNETES_HELM_VERIFIED=false
+CODE_COMPLETE=true
+INFRA_VERIFIED=false
+PERSISTENT_IMPORT_COMPLETE=false
+GOVERNANCE_MANIFEST_VERIFIED=false
+DATA_PROMOTION_COMPLETE=false
+SUPERSESSION_REVOCATION_COMPLETE=false
+DATABASE_LEAST_PRIVILEGE_VERIFIED=false
+EMBEDDING_AUTHORIZATION_VERIFIED=false
 EMBEDDING_SMOKE_COMPLETE=false
 EMBEDDING_BACKFILL_COMPLETE=false
 REAL_STACK_E2E_COMPLETE=false

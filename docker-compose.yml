@@ -25,7 +25,7 @@ services:
     environment:
       POSTGRES_DB: vmec
       POSTGRES_USER: vmec
-      POSTGRES_PASSWORD: vmec
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the ignored V8 runtime env file}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/docker/init.sql:/docker-entrypoint-initdb.d/00-extensions.sql:ro
@@ -71,6 +71,7 @@ services:
     ports: ["127.0.0.1:8000:8000"]
     depends_on:
       migrate: { condition: service_completed_successfully }
+      provision-roles: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -90,6 +91,7 @@ services:
       - reports:/app/data/reports
     depends_on:
       migrate: { condition: service_completed_successfully }
+      provision-roles: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
   scheduler:
@@ -105,7 +107,25 @@ services:
       - reports:/app/data/reports
     depends_on:
       migrate: { condition: service_completed_successfully }
+      provision-roles: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
+
+  provision-roles:
+    <<: *runtime
+    build: { context: ., dockerfile: Dockerfile }
+    command: ["python", "-m", "scripts.provision_local_postgres_roles"]
+    environment:
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in the ignored V8 runtime env file}
+      VMEC_MIGRATION_DATABASE_URL: ${VMEC_MIGRATION_DATABASE_URL:?set VMEC_MIGRATION_DATABASE_URL in the ignored V8 runtime env file}
+      VMEC_API_DATABASE_URL: ${VMEC_API_DATABASE_URL:?set VMEC_API_DATABASE_URL in the ignored V8 runtime env file}
+      VMEC_WORKER_DATABASE_URL: ${VMEC_WORKER_DATABASE_URL:?set VMEC_WORKER_DATABASE_URL in the ignored V8 runtime env file}
+      VMEC_IMPORTER_DATABASE_URL: ${VMEC_IMPORTER_DATABASE_URL:?set VMEC_IMPORTER_DATABASE_URL in the ignored V8 runtime env file}
+      VMEC_ANALYTICS_DATABASE_URL: ${VMEC_ANALYTICS_DATABASE_URL:?set VMEC_ANALYTICS_DATABASE_URL in the ignored V8 runtime env file}
+      VMEC_CLINICAL_DATABASE_URL: ${VMEC_CLINICAL_DATABASE_URL:?set VMEC_CLINICAL_DATABASE_URL in the ignored V8 runtime env file}
+      GOVERNANCE_DATABASE_URL: ${GOVERNANCE_DATABASE_URL:?set GOVERNANCE_DATABASE_URL in the ignored V8 runtime env file}
+      VMEC_BACKUP_DATABASE_URL: ${VMEC_BACKUP_DATABASE_URL:?set VMEC_BACKUP_DATABASE_URL in the ignored V8 runtime env file}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
 
   governance-promote:
     <<: *runtime

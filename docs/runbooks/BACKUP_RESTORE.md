@@ -61,6 +61,25 @@ dropdb "<isolated-restore-database>"
 
 Until a complete drill succeeds, keep `INFRA_VERIFIED=false` and `PRODUCTION_READY=false`.
 
+## V8 local encrypted rehearsal
+
+When Docker Engine and PostgreSQL are healthy, V8 uses the ignored age recipient and identity under `.secrets/v8/`.
+The helper keeps the raw custom dump in a temporary private directory, encrypts it before preserving it, records only
+the archive digest, and restores into an explicitly named clean database.
+
+```powershell
+python -m scripts.local_encrypted_backup backup `
+  --backup-directory .secrets/v8/backups `
+  --recipient .secrets/v8/backup.recipient.txt
+
+python -m scripts.local_encrypted_backup restore `
+  --archive ".secrets/v8/backups/<archive>.dump.age" `
+  --identity .secrets/v8/backup.agekey `
+  --restore-database vmec_restore_v8
+```
+
+This is prepared, not executed: encryption setup or an archive alone is not restore-drill evidence.
+
 ## Compose drill sequence
 
 The following sequence is prepared but was not run in the V5 Mode C environment. Use only a disposable restore database and an encrypted backup destination outside this repository.

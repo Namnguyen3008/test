@@ -113,3 +113,10 @@ roles with externally provisioned login members. Grants, RLS, safe reporting vie
 and append-only triggers enforce boundaries in PostgreSQL. The migration owns grants but never creates passwords.
 Runtime services must not connect as an object owner; static checks are preparation, while dedicated-login real DB
 tests are required before the least-privilege gate can pass.
+
+## ADR-025: Local V8 credentials are generated, ignored, and least-exposed
+
+V8 local rehearsal uses random per-role PostgreSQL passwords, distinct Ed25519 keypairs, and age backup identity
+material under an ignored, current-user ACL-restricted `.secrets/v8/` directory. The source repository only contains
+the provisioner and non-secret contracts. Generated governance keys create unsigned templates; they cannot stand in
+for reviewer/owner identity, authorization, approval, or production signing.

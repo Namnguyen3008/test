@@ -20,12 +20,16 @@ spec:
           env:
             - { name: APP_ENV, value: {{ $.Values.config.appEnv | quote }} }
             - { name: APP_DATA_MODE, value: {{ $.Values.config.dataMode | quote }} }
+            {{- if ne $name "web" }}
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: {{ $.Values.config.databaseUrlSecret }}, key: database-url } }
             - name: REDIS_URL
               valueFrom: { secretKeyRef: { name: {{ $.Values.config.redisUrlSecret }}, key: redis-url } }
+            {{- end }}
+            {{- if eq $name "api" }}
             - name: GEMINI_API_KEY
               valueFrom: { secretKeyRef: { name: {{ $.Values.config.geminiKeySecret }}, key: api-key } }
+            {{- end }}
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: ["ALL"] } }
           resources: {{ toYaml $.Values.resources | nindent 12 }}
           {{- if ne $name "worker" }}

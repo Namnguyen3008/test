@@ -48,6 +48,9 @@ docker-compose.override.yml
 # Node (frontend)
 node_modules/
 .next/
+*.tsbuildinfo
+test-results/
+playwright-report/
 out/
 .nuxt/
 

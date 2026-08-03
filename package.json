@@ -8,6 +8,7 @@
     "lint:web": "npm --workspace apps/web run lint",
     "typecheck:web": "npm --workspace apps/web run typecheck",
     "test:web": "npm --workspace apps/web run test"
+    ,"test:e2e": "playwright test -c tests/e2e/playwright.config.ts"
   },
   "engines": { "node": ">=22" },
   "overrides": {

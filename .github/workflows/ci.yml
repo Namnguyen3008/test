@@ -39,6 +39,8 @@ jobs:
       - run: npm run test:web
       - run: npm run build:web
         env: { NEXT_TELEMETRY_DISABLED: "1" }
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
 
   containers:
     runs-on: ubuntu-latest

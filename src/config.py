@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     gemini_embedding_dimensions: int = 768
     redis_url: str = "redis://localhost:6379/0"
 
+    # Authentication
+    session_redis_url: str = "redis://localhost:6379/1"
+    session_cookie_name: str = "vmec_session"
+    session_ttl_seconds: int = Field(default=3600, ge=300, le=2_592_000)
+    csrf_secret: SecretStr = SecretStr("development-only-csrf-secret-change-me")
+
+    # Emergency runtime corpus
+    emergency_catalog_path: str = "data/staging/vmec_catalog.sqlite3"
+    emergency_release_id: str = ""
+
     # Database
     database_url: str = "sqlite:///./data/app.db"
 
@@ -54,6 +64,16 @@ class Settings(BaseSettings):
             or self.gemini_embedding_dimensions != 768
         ):
             raise ValueError("Forbidden Gemini embedding configuration")
+        if self.app_env == "production" and self.csrf_secret.get_secret_value() == (
+            "development-only-csrf-secret-change-me"
+        ):
+            raise ValueError("Production requires an external CSRF secret")
+        if len(self.csrf_secret.get_secret_value()) < 32:
+            raise ValueError("CSRF secret must contain at least 32 characters")
+        if self.app_env == "production" and not self.database_url.startswith(("postgresql://", "postgresql+")):
+            raise ValueError("Production requires PostgreSQL persistence")
+        if self.app_env == "production" and not self.session_redis_url.startswith(("redis://", "rediss://")):
+            raise ValueError("Production requires Redis-backed sessions")
         return self
 
 

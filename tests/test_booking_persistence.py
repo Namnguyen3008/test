@@ -1,0 +1,347 @@
+from __future__ import annotations
+
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session, sessionmaker
+
+from src.api.auth_routes import AuthContext, authenticated_context, csrf_protected
+from src.booking.api import router
+from src.booking.models import AppointmentEvent, BookingOutbox, Slot, SlotHold
+from src.booking.repository import (
+    BookingConflictError,
+    BookingForbiddenError,
+    BookingInvalidTransitionError,
+    BookingRepository,
+)
+from src.persistence.database import Base, get_db_session
+from src.persistence.identity_models import UserRecord
+from src.security.auth import Principal, Role
+
+
+@pytest.fixture
+def booking_factory(tmp_path: Path) -> sessionmaker[Session]:
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'booking.sqlite3'}",
+        connect_args={"check_same_thread": False, "timeout": 15},
+    )
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(engine, expire_on_commit=False)
+    with factory.begin() as session:
+        session.add_all(
+            [
+                UserRecord(
+                    id="10000000-0000-0000-0000-000000000001",
+                    email="patient@example.test",
+                    role=Role.PATIENT,
+                    password_hash="not-used-in-booking-test",
+                ),
+                UserRecord(
+                    id="20000000-0000-0000-0000-000000000002",
+                    email="patient2@example.test",
+                    role=Role.PATIENT,
+                    password_hash="not-used-in-booking-test",
+                ),
+                UserRecord(
+                    id="30000000-0000-0000-0000-000000000003",
+                    email="staff@example.test",
+                    role=Role.STAFF,
+                    password_hash="not-used-in-booking-test",
+                ),
+            ]
+        )
+        start = datetime.now(UTC) + timedelta(days=1)
+        session.add_all(
+            [
+                Slot(
+                    id="40000000-0000-0000-0000-000000000004",
+                    specialty_id="cardiology",
+                    facility_id="main",
+                    starts_at=start,
+                    ends_at=start + timedelta(minutes=30),
+                ),
+                Slot(
+                    id="50000000-0000-0000-0000-000000000005",
+                    specialty_id="cardiology",
+                    facility_id="main",
+                    starts_at=start + timedelta(hours=1),
+                    ends_at=start + timedelta(hours=1, minutes=30),
+                ),
+            ]
+        )
+    return factory
+
+
+PATIENT = "10000000-0000-0000-0000-000000000001"
+PATIENT_2 = "20000000-0000-0000-0000-000000000002"
+STAFF = "30000000-0000-0000-0000-000000000003"
+SLOT_1 = "40000000-0000-0000-0000-000000000004"
+SLOT_2 = "50000000-0000-0000-0000-000000000005"
+
+
+def _call(factory: sessionmaker[Session], method: str, **kwargs):
+    with factory() as session:
+        return getattr(BookingRepository(session), method)(**kwargs)
+
+
+def test_booking_lifecycle_is_persistent_idempotent_and_audited(booking_factory: sessionmaker[Session]) -> None:
+    held = _call(booking_factory, "hold", slot_id=SLOT_1, patient_id=PATIENT, key="hold-key-1")
+    replay = _call(booking_factory, "hold", slot_id=SLOT_1, patient_id=PATIENT, key="hold-key-1")
+    assert replay.id == held.id
+    with pytest.raises(BookingConflictError):
+        _call(booking_factory, "hold", slot_id=SLOT_2, patient_id=PATIENT, key="hold-key-1")
+
+    pending = _call(
+        booking_factory,
+        "patient_confirm",
+        appointment_id=held.id,
+        patient_id=PATIENT,
+        key="confirm-key-1",
+    )
+    assert pending.status == "PENDING_STAFF_APPROVAL"
+    confirmed = _call(
+        booking_factory,
+        "staff_decide",
+        appointment_id=held.id,
+        staff_id=STAFF,
+        approve=True,
+        key="approve-key-1",
+    )
+    assert confirmed.status == "CONFIRMED"
+    assert confirmed.patient_confirmed_at is not None
+    assert confirmed.staff_approved_at is not None
+
+    history = _call(booking_factory, "history", patient_id=PATIENT)
+    assert [item.id for item in history] == [held.id]
+    with booking_factory() as session:
+        actions = list(session.scalars(select(AppointmentEvent.action).order_by(AppointmentEvent.id)))
+        assert actions == ["hold_slot", "patient_confirm", "staff_approve"]
+        assert session.scalar(select(BookingOutbox).where(BookingOutbox.aggregate_id == held.id)) is not None
+
+
+def test_confirmation_requires_owner_and_staff_cannot_skip_patient(
+    booking_factory: sessionmaker[Session],
+) -> None:
+    held = _call(booking_factory, "hold", slot_id=SLOT_1, patient_id=PATIENT, key="hold-key-2")
+    with pytest.raises(BookingForbiddenError):
+        _call(
+            booking_factory,
+            "patient_confirm",
+            appointment_id=held.id,
+            patient_id=PATIENT_2,
+            key="cross-patient",
+        )
+    with pytest.raises(BookingInvalidTransitionError):
+        _call(
+            booking_factory,
+            "staff_decide",
+            appointment_id=held.id,
+            staff_id=STAFF,
+            approve=True,
+            key="premature-approval",
+        )
+
+
+def test_reschedule_keeps_original_reserved_until_reconfirm_and_staff_approval(
+    booking_factory: sessionmaker[Session],
+) -> None:
+    held = _call(booking_factory, "hold", slot_id=SLOT_1, patient_id=PATIENT, key="hold-key-3")
+    _call(
+        booking_factory,
+        "patient_confirm",
+        appointment_id=held.id,
+        patient_id=PATIENT,
+        key="confirm-key-3",
+    )
+    _call(
+        booking_factory,
+        "staff_decide",
+        appointment_id=held.id,
+        staff_id=STAFF,
+        approve=True,
+        key="approve-key-3",
+    )
+    proposed = _call(
+        booking_factory,
+        "propose_reschedule",
+        appointment_id=held.id,
+        staff_id=STAFF,
+        new_slot_id=SLOT_2,
+        key="reschedule-key-3",
+    )
+    assert proposed.status == "RESCHEDULE_PROPOSED"
+    assert proposed.slot_id == SLOT_1
+    assert proposed.proposed_slot_id == SLOT_2
+    with pytest.raises(BookingConflictError):
+        _call(booking_factory, "hold", slot_id=SLOT_2, patient_id=PATIENT_2, key="blocked-new-slot")
+
+    reconfirmed = _call(
+        booking_factory,
+        "patient_confirm",
+        appointment_id=held.id,
+        patient_id=PATIENT,
+        key="reconfirm-key-3",
+    )
+    assert reconfirmed.status == "PENDING_STAFF_APPROVAL"
+    moved = _call(
+        booking_factory,
+        "staff_decide",
+        appointment_id=held.id,
+        staff_id=STAFF,
+        approve=True,
+        key="approve-move-key-3",
+    )
+    assert moved.status == "CONFIRMED"
+    assert moved.slot_id == SLOT_2
+    assert moved.proposed_slot_id is None
+    replacement = _call(booking_factory, "hold", slot_id=SLOT_1, patient_id=PATIENT_2, key="old-slot-free")
+    assert replacement.status == "HELD"
+
+
+def test_expired_hold_is_released_and_cannot_be_confirmed(booking_factory: sessionmaker[Session]) -> None:
+    current = [datetime.now(UTC)]
+    with booking_factory() as session:
+        held = BookingRepository(session, clock=lambda: current[0]).hold(
+            slot_id=SLOT_1, patient_id=PATIENT, key="expiring-hold", ttl_seconds=30
+        )
+    current[0] += timedelta(seconds=31)
+    with booking_factory() as session:
+        assert BookingRepository(session, clock=lambda: current[0]).expire_due() == 1
+    with pytest.raises(BookingInvalidTransitionError):
+        with booking_factory() as session:
+            BookingRepository(session, clock=lambda: current[0]).patient_confirm(
+                appointment_id=held.id, patient_id=PATIENT, key="late-confirm"
+            )
+    replacement = _call(booking_factory, "hold", slot_id=SLOT_1, patient_id=PATIENT_2, key="after-expiry")
+    assert replacement.patient_id == PATIENT_2
+
+
+def test_cancel_releases_slot_and_reschedule_rejection_keeps_original(
+    booking_factory: sessionmaker[Session],
+) -> None:
+    held = _call(booking_factory, "hold", slot_id=SLOT_1, patient_id=PATIENT, key="hold-cancel-flow")
+    _call(
+        booking_factory,
+        "patient_confirm",
+        appointment_id=held.id,
+        patient_id=PATIENT,
+        key="confirm-cancel-flow",
+    )
+    _call(
+        booking_factory,
+        "staff_decide",
+        appointment_id=held.id,
+        staff_id=STAFF,
+        approve=True,
+        key="approve-cancel-flow",
+    )
+    _call(
+        booking_factory,
+        "propose_reschedule",
+        appointment_id=held.id,
+        staff_id=STAFF,
+        new_slot_id=SLOT_2,
+        key="offer-cancel-flow",
+    )
+    _call(
+        booking_factory,
+        "patient_confirm",
+        appointment_id=held.id,
+        patient_id=PATIENT,
+        key="reconfirm-cancel-flow",
+    )
+    rejected_move = _call(
+        booking_factory,
+        "staff_decide",
+        appointment_id=held.id,
+        staff_id=STAFF,
+        approve=False,
+        key="reject-move-flow",
+    )
+    assert rejected_move.status == "CONFIRMED"
+    assert rejected_move.slot_id == SLOT_1
+    assert rejected_move.proposed_slot_id is None
+    second_patient = _call(booking_factory, "hold", slot_id=SLOT_2, patient_id=PATIENT_2, key="released-proposed-slot")
+    assert second_patient.status == "HELD"
+
+    cancelled = _call(
+        booking_factory,
+        "cancel",
+        appointment_id=held.id,
+        actor_id=PATIENT,
+        key="cancel-confirmed-flow",
+        patient_only=True,
+    )
+    assert cancelled.status == "CANCELLED"
+    replacement = _call(booking_factory, "hold", slot_id=SLOT_1, patient_id=PATIENT_2, key="released-old-slot")
+    assert replacement.status == "HELD"
+
+
+def test_availability_excludes_active_holds(booking_factory: sessionmaker[Session]) -> None:
+    start = datetime.now(UTC)
+    end = start + timedelta(days=3)
+    with booking_factory() as session:
+        initial = BookingRepository(session).availability(starts_after=start, ends_before=end)
+    assert {slot.id for slot in initial} == {SLOT_1, SLOT_2}
+    _call(booking_factory, "hold", slot_id=SLOT_1, patient_id=PATIENT, key="availability-hold")
+    with booking_factory() as session:
+        remaining = BookingRepository(session).availability(starts_after=start, ends_before=end)
+    assert [slot.id for slot in remaining] == [SLOT_2]
+
+
+def test_concurrent_holds_have_exactly_one_winner(booking_factory: sessionmaker[Session]) -> None:
+    barrier = threading.Barrier(4)
+
+    def attempt(index: int) -> str:
+        barrier.wait()
+        try:
+            _call(
+                booking_factory,
+                "hold",
+                slot_id=SLOT_1,
+                patient_id=PATIENT if index == 0 else PATIENT_2,
+                key=f"concurrent-{index}",
+            )
+            return "won"
+        except BookingConflictError:
+            return "conflict"
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        outcomes = list(pool.map(attempt, range(4)))
+    assert outcomes.count("won") == 1
+    assert outcomes.count("conflict") == 3
+    with booking_factory() as session:
+        assert session.scalar(select(SlotHold).where(SlotHold.released_at.is_(None))) is not None
+
+
+def test_booking_api_enforces_role_and_uses_authenticated_identity(
+    booking_factory: sessionmaker[Session],
+) -> None:
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1")
+
+    def db_override():
+        with booking_factory() as session:
+            yield session
+
+    patient_context = AuthContext(Principal(PATIENT, Role.PATIENT), "session-token-not-returned")
+    app.dependency_overrides[get_db_session] = db_override
+    app.dependency_overrides[authenticated_context] = lambda: patient_context
+    app.dependency_overrides[csrf_protected] = lambda: patient_context
+
+    client = TestClient(app)
+    created = client.post(
+        "/api/v1/booking/holds",
+        json={"slot_id": SLOT_1, "ttl_seconds": 300},
+        headers={"Idempotency-Key": "api-hold-key"},
+    )
+    assert created.status_code == 201
+    assert created.json()["patient_id"] == PATIENT
+    assert client.get("/api/v1/booking/staff/queue").status_code == 403
+    assert client.get("/api/v1/booking/appointments").json()["items"][0]["id"] == created.json()["id"]

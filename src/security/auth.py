@@ -10,10 +10,10 @@ import secrets
 import time
 from dataclasses import asdict, dataclass
 from enum import StrEnum
-from typing import Protocol
+from typing import Any, Protocol
 
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from cryptography.fernet import Fernet, InvalidToken
 
 
@@ -43,12 +43,16 @@ class PasswordService:
     def hash(self, password: str) -> str:
         if len(password) < 12:
             raise ValueError("Password must be at least 12 characters")
+        if len(password) > 256:
+            raise ValueError("Password must not exceed 256 characters")
         return self._hasher.hash(password)
 
     def verify(self, encoded: str, password: str) -> bool:
+        if len(password) > 256:
+            return False
         try:
             return self._hasher.verify(encoded, password)
-        except VerifyMismatchError:
+        except (VerifyMismatchError, VerificationError, InvalidHashError):
             return False
 
 
@@ -59,7 +63,11 @@ class SessionStore:
 
     @staticmethod
     def _key(token: str) -> str:
-        return "vmec:session:" + hashlib.sha256(token.encode()).hexdigest()
+        return "vmec:session:" + SessionStore.digest(token)
+
+    @staticmethod
+    def digest(token: str) -> str:
+        return hashlib.sha256(token.encode()).hexdigest()
 
     async def create(self, principal: Principal) -> str:
         token = secrets.token_urlsafe(32)
@@ -74,11 +82,23 @@ class SessionStore:
             return None
         if isinstance(raw, bytes):
             raw = raw.decode()
-        payload = json.loads(raw)
-        return Principal(str(payload["user_id"]), Role(payload["role"]))
+        try:
+            payload = json.loads(raw)
+            return Principal(str(payload["user_id"]), Role(payload["role"]))
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            await self._redis.delete(self._key(token))
+            return None
 
     async def revoke(self, token: str) -> None:
         await self._redis.delete(self._key(token))
+
+    async def revoke_digest(self, token_digest: str) -> None:
+        await self._redis.delete("vmec:session:" + token_digest)
+
+    async def aclose(self) -> None:
+        closer: Any = getattr(self._redis, "aclose", None)
+        if closer is not None:
+            await closer()
 
 
 def require_role(principal: Principal, *allowed: Role) -> None:

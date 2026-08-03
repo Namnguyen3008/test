@@ -3,13 +3,16 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from src.booking import models as booking_models  # noqa: F401
 from src.config import get_settings
+from src.persistence import identity_models  # noqa: F401
+from src.persistence.database import Base
 
 config = context.config
 if config.config_file_name:
     fileConfig(config.config_file_name)
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

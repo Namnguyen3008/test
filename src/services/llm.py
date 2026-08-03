@@ -93,6 +93,9 @@ class RedisAsyncState:
     async def delete(self, key: str) -> object:
         return await self._client.delete(key)
 
+    async def aclose(self) -> None:
+        await self._client.aclose()
+
 
 @dataclass(frozen=True)
 class ModelTelemetry:
@@ -276,6 +279,9 @@ class GeminiRoundRobin:
             await self._client.aio.aclose()
         if hasattr(self._client, "close"):
             self._client.close()
+        redis_close = getattr(self._redis, "aclose", None)
+        if redis_close is not None:
+            await redis_close()
 
 
 @lru_cache

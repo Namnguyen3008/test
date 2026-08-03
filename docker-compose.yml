@@ -11,6 +11,15 @@ x-runtime: &runtime
     - ALL
   security_opt: [no-new-privileges:true]
 
+x-backend-environment: &backend-environment
+  APP_ENV: development
+  APP_DATA_MODE: development
+  DATABASE_URL: postgresql+psycopg://vmec:vmec@postgres:5432/vmec
+  REDIS_URL: redis://redis:6379/0
+  SESSION_REDIS_URL: redis://redis:6379/1
+  RETRIEVAL_RUNTIME_MODE: postgres
+  VMEC_PERSISTENT_PGVECTOR_VERIFIED: "true"
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -21,6 +30,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/docker/init.sql:/docker-entrypoint-initdb.d/00-extensions.sql:ro
+    ports: ["127.0.0.1:5432:5432"]
     healthcheck:
       test: [CMD-SHELL, "pg_isready -U vmec -d vmec"]
       interval: 5s
@@ -31,28 +41,34 @@ services:
     image: redis:7.4-alpine
     command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
     volumes: [redis_data:/data]
+    ports: ["127.0.0.1:6379:6379"]
     healthcheck:
       test: [CMD, redis-cli, ping]
       interval: 5s
       timeout: 3s
       retries: 20
 
+  migrate:
+    <<: *runtime
+    build: { context: ., dockerfile: Dockerfile }
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-environment
+    depends_on:
+      postgres: { condition: service_healthy }
+
   api:
     <<: *runtime
     build: { context: ., dockerfile: Dockerfile }
     command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
-      APP_ENV: development
-      APP_DATA_MODE: development
-      DATABASE_URL: postgresql+psycopg://vmec:vmec@postgres:5432/vmec
-      REDIS_URL: redis://redis:6379/0
+      <<: *backend-environment
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     volumes:
       - ./data:/app/data:ro
       - reports:/app/data/reports
     ports: ["127.0.0.1:8000:8000"]
     depends_on:
-      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -64,21 +80,33 @@ services:
     <<: *runtime
     build: { context: ., dockerfile: Dockerfile }
     command: ["python", "-m", "apps.worker"]
-    environment:
-      APP_ENV: development
-      APP_DATA_MODE: development
-      DATABASE_URL: postgresql+psycopg://vmec:vmec@postgres:5432/vmec
-      REDIS_URL: redis://redis:6379/0
+    environment: *backend-environment
     volumes:
       - ./data:/app/data:ro
       - reports:/app/data/reports
     depends_on:
-      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  scheduler:
+    <<: *runtime
+    build: { context: ., dockerfile: Dockerfile }
+    command:
+      ["celery", "-A", "apps.worker.__main__:app", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+    environment: *backend-environment
+    volumes:
+      - ./data:/app/data:ro
+      - reports:/app/data/reports
+    depends_on:
+      migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
   web:
     <<: *runtime
-    build: { context: ./apps/web, dockerfile: Dockerfile }
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args: { NEXT_PUBLIC_API_URL: http://localhost:8000 }
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     ports: ["127.0.0.1:3000:3000"]

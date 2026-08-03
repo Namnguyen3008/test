@@ -123,11 +123,11 @@ def import_review_package(
 ) -> list[ReviewItemView]:
     _allow(context.principal, Role.ADMIN)
     repository = ReviewRepository(session)
-    imported: list[ReviewItemView] = []
     try:
-        for item in body.items:
-            imported.append(_view(repository.create_item(**item.model_dump(), actor_id=context.principal.user_id)))
-        return imported
+        imported = repository.import_package(
+            [item.model_dump() for item in body.items], actor_id=context.principal.user_id
+        )
+        return [_view(item) for item in imported]
     except Exception as exc:
         _translate(exc)
         raise

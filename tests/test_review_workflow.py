@@ -8,7 +8,7 @@ from src.api.auth_routes import AuthContext, authenticated_context, csrf_protect
 from src.persistence.database import Base, get_db_session
 from src.persistence.identity_models import AuditEventRecord, UserRecord
 from src.review.api import router
-from src.review.models import ClinicalReviewDecision
+from src.review.models import ClinicalReviewDecision, ClinicalReviewItem
 from src.review.repository import ReviewConflictError, ReviewForbiddenError, ReviewRepository
 from src.security.auth import Principal, Role
 
@@ -84,6 +84,8 @@ def test_single_review_is_audited_but_never_marks_production_approved(review_fac
     assert report["status"] == "ELIGIBLE_FOR_GOVERNANCE_REVIEW"
     assert report["production_approved"] is False
     assert exported["production_approved"] is False
+    assert exported["schema_version"] == "vmec.review-evidence.v1"
+    assert len(str(exported["package_digest"])) == 64
     assert exported["contains_evidence_text"] is False
     assert "evidence_summary" not in str(exported)
     assert "Nguồn và định tuyến" not in str(exported)
@@ -143,6 +145,65 @@ def test_claim_version_rationale_and_competing_reviewer_are_enforced(review_fact
                 decision="APPROVE",
                 rationale="quá ngắn",
             )
+
+
+def test_package_import_is_atomic_and_replay_rejects_changed_evidence(review_factory) -> None:
+    create_item(review_factory, row_id="existing")
+    package = [
+        {
+            "release_id": RELEASE,
+            "record_id": None,
+            "origin_table": "routing_rows",
+            "origin_row_id": "new-before-conflict",
+            "content_hash": "c" * 64,
+            "evidence_summary": "Evidence package item that should roll back atomically.",
+            "source_ids": ["GLOBAL-1"],
+            "safety_critical": False,
+        },
+        {
+            "release_id": RELEASE,
+            "record_id": None,
+            "origin_table": "routing_rows",
+            "origin_row_id": "existing",
+            "content_hash": "a" * 64,
+            "evidence_summary": "Changed evidence must be detected even when content hash matches.",
+            "source_ids": ["GLOBAL-OTHER"],
+            "safety_critical": True,
+        },
+    ]
+
+    with pytest.raises(ReviewConflictError, match="immutable evidence"):
+        with review_factory() as session:
+            ReviewRepository(session).import_package(package, actor_id=ADMIN)
+
+    with review_factory() as session:
+        assert (
+            session.scalar(select(ClinicalReviewItem).where(ClinicalReviewItem.origin_row_id == "new-before-conflict"))
+            is None
+        )
+
+
+def test_queue_prioritizes_adjudication_then_safety_critical(review_factory) -> None:
+    create_item(review_factory, row_id="normal")
+    safety = create_item(review_factory, row_id="safety", safety_critical=True)
+    adjudication = create_item(review_factory, row_id="adjudication", safety_critical=True)
+    with review_factory() as session:
+        claimed = ReviewRepository(session).claim(
+            item_id=adjudication.id, reviewer_id=REVIEWER_1, expected_version=adjudication.version
+        )
+    with review_factory() as session:
+        ReviewRepository(session).decide(
+            item_id=adjudication.id,
+            reviewer_id=REVIEWER_1,
+            expected_version=claimed.version,
+            decision="APPROVE",
+            rationale="First independent safety review is complete and source grounded.",
+        )
+
+    with review_factory() as session:
+        queue = ReviewRepository(session).queue()
+
+    assert [item.origin_row_id for item in queue] == ["adjudication", safety.origin_row_id, "normal"]
 
 
 @pytest.mark.parametrize(("user_id", "role"), [(PATIENT, Role.PATIENT), (STAFF, Role.STAFF)])

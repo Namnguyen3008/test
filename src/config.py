@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     # Emergency runtime corpus
     emergency_catalog_path: str = "data/staging/vmec_catalog.sqlite3"
     emergency_release_id: str = ""
+    approved_corpus_manifest_path: str = "data/source/APPROVED_CORPUS_MANIFEST.json"
 
     # Database
     database_url: str = "sqlite:///./data/app.db"

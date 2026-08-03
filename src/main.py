@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from redis.asyncio import Redis
+from sqlalchemy import text
 
 from src.api.auth_routes import get_auth_rate_limiter, get_session_store
 from src.api.auth_routes import router as auth_router
@@ -11,6 +13,7 @@ from src.api.routes import router
 from src.booking.api import router as booking_router
 from src.config import get_settings
 from src.observability import configure_observability
+from src.persistence.database import get_engine
 from src.review.api import router as review_router
 from src.security import SecurityHeadersMiddleware
 from src.services.emergency import (
@@ -49,8 +52,9 @@ async def lifespan(app: FastAPI):
             get_routing_retriever.cache_clear()
 
 
-def validate_data_readiness(data_mode: DataMode) -> None:
-    if data_mode == "production" and not Path("data/source/APPROVED_CORPUS_MANIFEST.json").is_file():
+def validate_data_readiness(data_mode: DataMode, approved_manifest_path: str | None = None) -> None:
+    manifest = Path(approved_manifest_path or get_settings().approved_corpus_manifest_path)
+    if data_mode == "production" and not manifest.is_file():
         raise RuntimeError("Production data mode requires an approved corpus manifest")
 
 
@@ -104,4 +108,30 @@ async def health():
 
 @app.get("/ready")
 async def readiness():
-    return {"status": "ready", "emergency_rules": emergency_runtime_status()}
+    settings = get_settings()
+    persistence = "not_configured"
+    if settings.database_url.startswith(("postgresql://", "postgresql+")):
+        try:
+            with get_engine().connect() as connection:
+                migration = connection.scalar(text("SELECT version_num FROM alembic_version"))
+                extensions = set(
+                    connection.scalars(
+                        text("SELECT extname FROM pg_extension WHERE extname IN ('vector','pg_trgm','unaccent')")
+                    )
+                )
+            if migration != "20260803_0008_persistent_import" or extensions != {"vector", "pg_trgm", "unaccent"}:
+                raise RuntimeError("persistent schema is incomplete")
+            redis = Redis.from_url(settings.redis_url)
+            sessions = Redis.from_url(settings.session_redis_url)
+            try:
+                if not await redis.ping() or not await sessions.ping():
+                    raise RuntimeError("persistent cache is unavailable")
+            finally:
+                await redis.aclose()
+                await sessions.aclose()
+            persistence = "verified"
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Runtime dependencies unavailable"
+            ) from exc
+    return {"status": "ready", "persistence": persistence, "emergency_rules": emergency_runtime_status()}

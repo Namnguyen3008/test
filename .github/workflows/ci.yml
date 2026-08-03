@@ -42,17 +42,31 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     env:
       APP_ENV: test
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/vmec
       VMEC_TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@localhost:5432/vmec
+      VMEC_TEST_REDIS_URL: redis://localhost:6379/14
+      REDIS_URL: redis://localhost:6379/13
+      SESSION_REDIS_URL: redis://localhost:6379/14
+      CSRF_SECRET: ci-only-csrf-secret-at-least-32-characters
+      RETRIEVAL_RUNTIME_MODE: postgres
+      VMEC_PERSISTENT_PGVECTOR_VERIFIED: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: pip }
       - run: pip install -r requirements.txt
       - run: python -m alembic upgrade head
-      - run: python -m pytest tests/integration/test_postgres_embedding_backfill.py -q
+      - run: python -m pytest tests/integration -q
 
   web:
     runs-on: ubuntu-latest

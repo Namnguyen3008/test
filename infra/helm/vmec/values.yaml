@@ -6,13 +6,22 @@ images:
 config:
   appEnv: production
   dataMode: production
+  publicApiUrl: https://api.vmec.example.invalid
+  corsOrigins: https://vmec.example.invalid
+  emergencyReleaseId: vmec-production-v1
   databaseUrlSecret: vmec-runtime
   redisUrlSecret: vmec-runtime
+  applicationSecret: vmec-application
   geminiKeySecret: vmec-gemini
+runtimeData:
+  # Pre-provision this read-only claim with the approved manifest and compiled catalog.
+  existingClaim: vmec-runtime-data
 ingress:
   enabled: false
   className: nginx
   host: vmec.example.invalid
+  apiHost: api.vmec.example.invalid
+  tlsSecret: vmec-staging-tls
 resources:
   requests: { cpu: 100m, memory: 256Mi }
   limits: { cpu: 1000m, memory: 1Gi }

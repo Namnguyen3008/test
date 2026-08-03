@@ -1,10 +1,10 @@
-{{- range $name := list "api" "web" "worker" }}
+{{- range $name := list "api" "web" "worker" "scheduler" }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: {{ include "vmec.name" $ }}-{{ $name }} }
 spec:
-  replicas: {{ $.Values.replicaCount }}
+  replicas: {{ if eq $name "scheduler" }}1{{ else }}{{ $.Values.replicaCount }}{{ end }}
   selector: { matchLabels: { app.kubernetes.io/name: {{ include "vmec.name" $ }}, app.kubernetes.io/component: {{ $name }} } }
   template:
     metadata: { labels: { app.kubernetes.io/name: {{ include "vmec.name" $ }}, app.kubernetes.io/component: {{ $name }} } }
@@ -12,29 +12,57 @@ spec:
       securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: {{ $name }}
+          {{- if eq $name "scheduler" }}
+          image: "{{ $.Values.images.worker.repository }}:{{ $.Values.images.worker.tag }}"
+          command: ["celery", "-A", "apps.worker.__main__:app", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+          {{- else }}
           image: "{{ (index $.Values.images $name).repository }}:{{ (index $.Values.images $name).tag }}"
           {{- if eq $name "worker" }}
           command: ["python", "-m", "apps.worker"]
+          {{- end }}
           {{- end }}
           ports: [{ name: http, containerPort: {{ if eq $name "web" }}3000{{ else }}8000{{ end }} }]
           env:
             - { name: APP_ENV, value: {{ $.Values.config.appEnv | quote }} }
             - { name: APP_DATA_MODE, value: {{ $.Values.config.dataMode | quote }} }
+            {{- if eq $name "web" }}
+            - { name: NEXT_PUBLIC_API_URL, value: {{ $.Values.config.publicApiUrl | quote }} }
+            {{- end }}
             {{- if ne $name "web" }}
+            - { name: RETRIEVAL_RUNTIME_MODE, value: "postgres" }
+            - { name: VMEC_PERSISTENT_PGVECTOR_VERIFIED, value: "true" }
+            - { name: EMERGENCY_CATALOG_PATH, value: "/runtime-data/vmec_catalog.sqlite3" }
+            - { name: EMERGENCY_RELEASE_ID, value: {{ $.Values.config.emergencyReleaseId | quote }} }
+            - { name: APPROVED_CORPUS_MANIFEST_PATH, value: "/runtime-data/APPROVED_CORPUS_MANIFEST.json" }
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: {{ $.Values.config.databaseUrlSecret }}, key: database-url } }
             - name: REDIS_URL
               valueFrom: { secretKeyRef: { name: {{ $.Values.config.redisUrlSecret }}, key: redis-url } }
+            - name: SESSION_REDIS_URL
+              valueFrom: { secretKeyRef: { name: {{ $.Values.config.redisUrlSecret }}, key: session-redis-url } }
+            - name: CSRF_SECRET
+              valueFrom: { secretKeyRef: { name: {{ $.Values.config.applicationSecret }}, key: csrf-secret } }
             {{- end }}
             {{- if eq $name "api" }}
+            - { name: CORS_ORIGINS, value: {{ $.Values.config.corsOrigins | quote }} }
             - name: GEMINI_API_KEY
               valueFrom: { secretKeyRef: { name: {{ $.Values.config.geminiKeySecret }}, key: api-key } }
             {{- end }}
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: ["ALL"] } }
           resources: {{ toYaml $.Values.resources | nindent 12 }}
-          {{- if ne $name "worker" }}
-          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 5 }
+          {{- if eq $name "api" }}
+          readinessProbe: { httpGet: { path: /ready, port: http }, initialDelaySeconds: 5 }
+          {{- else if eq $name "web" }}
+          readinessProbe: { tcpSocket: { port: http }, initialDelaySeconds: 5 }
           {{- end }}
-          volumeMounts: [{ name: tmp, mountPath: /tmp }]
-      volumes: [{ name: tmp, emptyDir: {} }]
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- if ne $name "web" }}
+            - { name: runtime-data, mountPath: /runtime-data, readOnly: true }
+            {{- end }}
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        {{- if ne $name "web" }}
+        - { name: runtime-data, persistentVolumeClaim: { claimName: {{ $.Values.runtimeData.existingClaim }} } }
+        {{- end }}
 {{- end }}

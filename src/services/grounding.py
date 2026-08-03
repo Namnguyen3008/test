@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 DISCLAIMER_VI = "Thông tin này chỉ hỗ trợ định hướng chuyên khoa, không thay thế chẩn đoán hoặc điều trị của bác sĩ."
 ALLOWED_TOOL_NAMES = frozenset(
@@ -23,19 +23,31 @@ FORBIDDEN_CLINICAL_TERMS = ("chẩn đoán", "kê đơn", "ngừng thuốc", "t�
 
 
 class Citation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     source_id: str = Field(min_length=1, max_length=128)
     locator: str = Field(min_length=1, max_length=500)
 
 
 class RoutingProposal(BaseModel):
-    specialty_id: str = Field(min_length=1, max_length=128)
+    model_config = ConfigDict(extra="forbid")
+
+    specialty_id: str | None = Field(default=None, min_length=1, max_length=128)
     rationale: str = Field(min_length=1, max_length=2000)
     confidence: float = Field(ge=0, le=1)
-    citations: list[Citation] = Field(min_length=1, max_length=8)
+    citations: list[Citation] = Field(default_factory=list, max_length=8)
     action: Literal["suggest_specialty", "clarify", "handoff"]
+
+    @model_validator(mode="after")
+    def require_grounding_for_suggestion(self) -> RoutingProposal:
+        if self.action == "suggest_specialty" and (not self.specialty_id or not self.citations):
+            raise ValueError("A specialty suggestion requires an identifier and citations")
+        return self
 
 
 class ToolProposal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     arguments: dict[str, str | int | bool]
 
@@ -51,6 +63,8 @@ def validate_routing(
     valid_source_ids: set[str],
     minimum_confidence: float = 0.65,
 ) -> str:
+    if proposal.action != "suggest_specialty":
+        raise GroundingError("Only specialty suggestions can pass the routing boundary")
     if proposal.specialty_id not in allowed_specialty_ids:
         raise GroundingError("Unknown specialty identifier")
     if any(citation.source_id not in valid_source_ids for citation in proposal.citations):

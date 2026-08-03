@@ -14,5 +14,10 @@ class AgentState(TypedDict, total=False):
     context: str
     response: str
     emergency: bool
+    retrieval_records: list[dict[str, object]]
+    retrieval_mode: str
+    allowed_specialty_ids: list[str]
+    valid_source_ids: list[str]
+    model_output: str
     error: str
     metadata: dict

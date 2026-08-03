@@ -14,6 +14,14 @@ async def test_health(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
+    assert "env" not in data
+
+
+@pytest.mark.asyncio
+async def test_readiness_and_security_headers(client):
+    response = await client.get("/ready")
+    assert response.status_code == 200
+    assert response.headers["x-content-type-options"] == "nosniff"
 
 
 @pytest.mark.asyncio

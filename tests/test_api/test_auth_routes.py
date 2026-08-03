@@ -9,11 +9,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.api.auth_routes import get_csrf_service, get_session_store
+from src.api.auth_routes import get_auth_rate_limiter, get_csrf_service, get_session_store
 from src.main import app
 from src.persistence.database import Base, get_db_session
 from src.security.auth import CsrfService, Role, SessionStore
 from src.security.identity import IdentityService
+from src.security.rate_limit import DistributedRateLimiter, InMemoryWindowBackend
 from src.services.llm import InMemoryRedisState
 
 
@@ -35,6 +36,7 @@ def identity_dependencies() -> Generator[tuple[sessionmaker[Session], SessionSto
     app.dependency_overrides[get_db_session] = db_override
     app.dependency_overrides[get_session_store] = lambda: store
     app.dependency_overrides[get_csrf_service] = lambda: CsrfService("t" * 32)
+    app.dependency_overrides[get_auth_rate_limiter] = lambda: DistributedRateLimiter(InMemoryWindowBackend())
     try:
         yield factory, store
     finally:

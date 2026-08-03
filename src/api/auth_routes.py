@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
@@ -22,6 +23,7 @@ from src.security.identity import (
     DuplicateIdentityError,
     IdentityService,
 )
+from src.security.rate_limit import DistributedRateLimiter, RateLimitUnavailableError
 
 
 def prevent_sensitive_caching(response: Response) -> None:
@@ -45,6 +47,14 @@ class RedisSessionAdapter:
     async def delete(self, key: str) -> object:
         return await self._client.delete(key)
 
+    async def hit(self, key: str, window_seconds: int) -> int:
+        script = (
+            "local count = redis.call('INCR', KEYS[1]); "
+            "if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]); end; "
+            "return count"
+        )
+        return int(await self._client.eval(script, 1, key, window_seconds))
+
     async def aclose(self) -> None:
         await self._client.aclose()
 
@@ -59,6 +69,37 @@ def get_session_store() -> SessionStore:
 def get_csrf_service() -> CsrfService:
     settings = get_settings()
     return CsrfService(settings.csrf_secret.get_secret_value(), max_age_seconds=settings.session_ttl_seconds)
+
+
+@lru_cache
+def get_auth_rate_limiter() -> DistributedRateLimiter:
+    settings = get_settings()
+    return DistributedRateLimiter(
+        RedisSessionAdapter(settings.session_redis_url),
+        require_distributed=settings.app_env == "production",
+    )
+
+
+async def auth_rate_limit(
+    request: Request,
+    limiter: Annotated[DistributedRateLimiter, Depends(get_auth_rate_limiter)],
+) -> None:
+    host = request.client.host if request.client else "unknown"
+    subject = hashlib.sha256(host.encode()).hexdigest()[:24]
+    action = "register" if request.url.path.endswith("/register") else "login"
+    limit = 5 if action == "register" else 10
+    try:
+        allowed = await limiter.allow(
+            f"vmec:rate_limit:auth:{action}:{subject}",
+            limit=limit,
+            window_seconds=300,
+        )
+    except RateLimitUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Authentication unavailable"
+        ) from exc
+    if not allowed:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many authentication attempts")
 
 
 def get_identity_service(
@@ -154,7 +195,11 @@ def _set_session_cookies(response: Response, token: str, csrf_token: str) -> Non
 
 
 @router.post("/auth/register", response_model=UserView, status_code=status.HTTP_201_CREATED)
-def register(payload: Credentials, service: Annotated[IdentityService, Depends(get_identity_service)]) -> UserView:
+def register(
+    payload: Credentials,
+    service: Annotated[IdentityService, Depends(get_identity_service)],
+    _rate_limit: Annotated[None, Depends(auth_rate_limit)],
+) -> UserView:
     try:
         return _user_view(service.create_user(str(payload.email), payload.password))
     except DuplicateIdentityError as exc:
@@ -168,6 +213,7 @@ async def login(
     response: Response,
     service: Annotated[IdentityService, Depends(get_identity_service)],
     csrf: Annotated[CsrfService, Depends(get_csrf_service)],
+    _rate_limit: Annotated[None, Depends(auth_rate_limit)],
 ) -> SessionView:
     previous_token = request.cookies.get(get_settings().session_cookie_name)
     try:

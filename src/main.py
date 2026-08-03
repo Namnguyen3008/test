@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.auth_routes import get_session_store
+from src.api.auth_routes import get_auth_rate_limiter, get_session_store
 from src.api.auth_routes import router as auth_router
 from src.api.routes import router
 from src.booking.api import router as booking_router
@@ -29,6 +29,9 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         reset_emergency_rules()
+        if get_auth_rate_limiter.cache_info().currsize:
+            await get_auth_rate_limiter().aclose()
+            get_auth_rate_limiter.cache_clear()
         if get_session_store.cache_info().currsize:
             await get_session_store().aclose()
             get_session_store.cache_clear()

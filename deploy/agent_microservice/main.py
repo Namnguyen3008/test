@@ -91,6 +91,7 @@ class ChatResponse(BaseModel):
     session_id: str = ""
     stage: str = "idle"
     emergency: bool = False
+    debug_logs: list[str] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
 
 
@@ -100,7 +101,7 @@ class ChatResponse(BaseModel):
 
 class Session:
     __slots__ = ("session_id", "stage", "history", "follow_up_count",
-                 "symptom_summary", "created_at", "updated_at")
+                 "symptom_summary", "created_at", "updated_at", "debug_logs")
 
     def __init__(self, session_id: str) -> None:
         self.session_id = session_id
@@ -110,9 +111,17 @@ class Session:
         self.symptom_summary: str = ""
         self.created_at: float = time.time()
         self.updated_at: float = time.time()
+        self.debug_logs: list[str] = [
+            f"[{time.strftime('%H:%M:%S')}] 🚀 Khởi tạo phiên hội thoại session_id='{session_id}' | Trạng thái: IDLE"
+        ]
 
     def touch(self) -> None:
         self.updated_at = time.time()
+
+    def add_log(self, entry: str) -> None:
+        ts = time.strftime("%H:%M:%S")
+        self.debug_logs.append(f"[{ts}] {entry}")
+        self.touch()
 
     def add_message(self, role: str, content: str) -> None:
         self.history.append({"role": role, "content": content})
@@ -368,6 +377,7 @@ def route_specialty(symptom_summary: str, rag_context: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def _greeting_response(session: Session) -> ChatResponse:
+    session.add_log("💬 Phản hồi: Chào hỏi thuần túy (Greeting Intent)")
     return ChatResponse(
         response=(
             "Chào bạn! 👋 Tôi là Trợ lý AI Y khoa VMEC. "
@@ -376,10 +386,12 @@ def _greeting_response(session: Session) -> ChatResponse:
         ),
         session_id=session.session_id,
         stage=session.stage.value,
+        debug_logs=session.debug_logs,
     )
 
 
 def _emergency_response(session: Session, reason: str = "") -> ChatResponse:
+    session.add_log(f"🚨 KÍCH HOẠT CẤP CỨU KHẨN CẤP! Lý do: {reason or 'Phát hiện red-flag'}")
     msg = (
         "🚨 **CẢNH BÁO CẤP CỨU**\n\n"
         "Triệu chứng bạn mô tả có dấu hiệu cần xử trí **cấp cứu khẩn cấp**.\n\n"
@@ -398,6 +410,7 @@ def _emergency_response(session: Session, reason: str = "") -> ChatResponse:
         session_id=session.session_id,
         stage=session.stage.value,
         emergency=True,
+        debug_logs=session.debug_logs,
         metadata={"specialty_name_vi": "Khoa Cấp cứu"},
     )
 
@@ -408,6 +421,8 @@ def _specialty_response(session: Session, result: dict) -> ChatResponse:
     sub_name = result.get("sub_specialty_name_vi", "")
     rationale = result.get("rationale", "Bạn nên thăm khám trực tiếp để bác sĩ tư vấn kỹ hơn.")
     precautions = result.get("precautions", [])
+
+    session.add_log(f"🎯 Đã kết luận định hướng chuyên khoa: {vi_name} ({spec_id}) | Phân khoa: {sub_name or 'N/A'}")
 
     msg = f"{rationale}\n\n"
     if precautions:
@@ -425,6 +440,7 @@ def _specialty_response(session: Session, result: dict) -> ChatResponse:
         response=msg,
         session_id=session.session_id,
         stage=session.stage.value,
+        debug_logs=session.debug_logs,
         metadata={
             "specialty_id": spec_id,
             "specialty_name_vi": vi_name,
@@ -479,47 +495,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .chat-body::-webkit-scrollbar { width: 6px; }
         .chat-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 
-        .msg-wrapper {
-            max-width: 80%; position: relative;
-            animation: fadeSlide 0.3s ease-out;
-        }
-        .msg-wrapper.user { align-self: flex-end; }
-        .msg-wrapper.agent { align-self: flex-start; }
         .msg {
-            padding: 14px 18px; border-radius: 18px;
+            max-width: 80%; padding: 14px 18px; border-radius: 18px;
             line-height: 1.7; font-size: 0.95rem; white-space: pre-wrap;
+            animation: fadeSlide 0.3s ease-out;
         }
         @keyframes fadeSlide {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .msg-wrapper.user .msg { background: var(--primary); color: white; border-bottom-right-radius: 4px; }
-        .msg-wrapper.agent .msg { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-        .msg-wrapper.emergency .msg { border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
-
-        .copy-btn {
-            position: absolute; top: 8px; right: 8px;
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
-            color: rgba(255,255,255,0.5); width: 30px; height: 30px;
-            border-radius: 8px; cursor: pointer; display: flex;
-            align-items: center; justify-content: center;
-            opacity: 0; transition: all 0.2s; font-size: 14px;
-            backdrop-filter: blur(8px);
-        }
-        .msg-wrapper:hover .copy-btn { opacity: 1; }
-        .copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; transform: scale(1.1); }
-        .copy-btn.copied { background: rgba(34,197,94,0.3); color: #4ade80; border-color: rgba(34,197,94,0.4); }
-
-        .copy-tooltip {
-            position: absolute; top: -28px; right: 0;
-            background: rgba(34,197,94,0.9); color: #fff; font-size: 0.7rem;
-            padding: 3px 10px; border-radius: 6px; pointer-events: none;
-            opacity: 0; transition: opacity 0.2s; white-space: nowrap;
-        }
-        .copy-tooltip.show { opacity: 1; }
-
-        .msg-wrapper.user .copy-btn { right: 8px; }
-        .msg-wrapper.agent .copy-btn { right: 8px; }
+        .msg.user { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }
+        .msg.agent { align-self: flex-start; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+        .msg.emergency { border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
 
         .meta-tag { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         .meta-pill {
@@ -569,20 +556,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         button:hover { background: var(--primary-hover); transform: translateY(-1px); }
         button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        .new-chat-btn {
+        .nav-btn {
             background: rgba(255,255,255,0.08); border: 1px solid var(--border);
-            color: var(--text); padding: 6px 14px; border-radius: 10px; cursor: pointer;
+            color: var(--text); padding: 6px 12px; border-radius: 10px; cursor: pointer;
             font-size: 0.8rem; font-weight: 500; transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 6px;
         }
-        .new-chat-btn:hover { background: rgba(255,255,255,0.15); }
+        .nav-btn:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.25); transform: translateY(-1px); }
+        .nav-btn.copied { background: rgba(34, 197, 94, 0.25); border-color: rgba(34, 197, 94, 0.5); color: #4ade80; }
     </style>
 </head>
 <body>
     <div class="chat-app">
         <div class="header">
             <h1>🤖 VMEC AI Agent Chatbot</h1>
-            <div style="display:flex;gap:10px;align-items:center;">
-                <button class="new-chat-btn" onclick="newChat()">🔄 Cuộc trò chuyện mới</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="nav-btn" id="copyLogBtn" onclick="copyDebugLog()">📋 Copy Log Luồng</button>
+                <button class="nav-btn" id="copyChatBtn" onclick="copyChatHistory()">💬 Copy Đoạn Chat</button>
+                <button class="nav-btn" onclick="newChat()">🔄 Cuộc trò chuyện mới</button>
                 <span class="badge">🟢 TRỰC TUYẾN 24/7</span>
             </div>
         </div>
@@ -600,9 +591,11 @@ Bạn có thể mô tả triệu chứng hoặc vấn đề sức khỏe bạn �
     </div>
     <script>
         let sessionId = crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'').slice(0,16) : Date.now().toString(36);
+        let currentDebugLogs = [];
 
         function newChat() {
             sessionId = crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'').slice(0,16) : Date.now().toString(36);
+            currentDebugLogs = ["[" + new Date().toLocaleTimeString() + "] 🚀 Phiên làm việc mới khởi tạo: " + sessionId];
             const chat = document.getElementById('chat');
             chat.innerHTML = '<div class="msg agent">Chào bạn! 👋 Tôi là Trợ lý AI Y khoa VMEC.\\n\\nTôi sẽ giúp bạn tìm hiểu triệu chứng và định hướng chuyên khoa phù hợp thông qua cuộc trò chuyện ngắn.\\n\\nBạn có thể mô tả triệu chứng hoặc vấn đề sức khỏe bạn đang gặp phải không ạ?</div>';
         }
@@ -634,6 +627,9 @@ Bạn có thể mô tả triệu chứng hoặc vấn đề sức khỏe bạn �
                 typing.remove();
 
                 if (data.session_id) sessionId = data.session_id;
+                if (data.debug_logs && data.debug_logs.length) {
+                    currentDebugLogs = data.debug_logs;
+                }
 
                 let extraHTML = '';
 
@@ -656,59 +652,75 @@ Bạn có thể mô tả triệu chứng hoặc vấn đề sức khỏe bạn �
             document.getElementById('userInput').focus();
         }
 
-        function appendMsg(cls, html) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'msg-wrapper ' + cls;
-
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'msg';
-            msgDiv.innerHTML = html;
-            wrapper.appendChild(msgDiv);
-
-            // Copy button
-            const copyBtn = document.createElement('button');
-            copyBtn.className = 'copy-btn';
-            copyBtn.title = 'Sao chép';
-            copyBtn.innerHTML = '📋';
-            copyBtn.onclick = function() { copyMsg(this, msgDiv); };
-            wrapper.appendChild(copyBtn);
-
-            // Tooltip
-            const tooltip = document.createElement('span');
-            tooltip.className = 'copy-tooltip';
-            tooltip.textContent = 'Đã sao chép!';
-            copyBtn.appendChild(tooltip);
-
-            document.getElementById('chat').appendChild(wrapper);
-            scrollToBottom();
+        async function copyDebugLog() {
+            const btn = document.getElementById('copyLogBtn');
+            if (!currentDebugLogs || currentDebugLogs.length === 0) {
+                alert("Chưa có log luồng hoạt động nào. Hãy gửi ít nhất 1 tin nhắn!");
+                return;
+            }
+            const header = "=====================================\n" +
+                           "  VMEC AI AGENT DEBUG FLOW LOG\n" +
+                           "  Session ID: " + sessionId + "\n" +
+                           "  Export Time: " + new Date().toLocaleString('vi-VN') + "\n" +
+                           "=====================================\n\n";
+            const fullText = header + currentDebugLogs.join("\n");
+            await writeToClipboard(fullText);
+            flashButton(btn, "✅ Đã copy Log!");
         }
 
-        function copyMsg(btn, msgDiv) {
-            const text = msgDiv.innerText || msgDiv.textContent;
-            navigator.clipboard.writeText(text).then(function() {
-                btn.classList.add('copied');
-                btn.innerHTML = '✅';
-                const tip = document.createElement('span');
-                tip.className = 'copy-tooltip show';
-                tip.textContent = 'Đã sao chép!';
-                btn.appendChild(tip);
-                setTimeout(function() {
-                    btn.classList.remove('copied');
-                    btn.innerHTML = '📋';
-                }, 1500);
-            }).catch(function() {
-                // Fallback for older browsers
-                const ta = document.createElement('textarea');
-                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-                document.body.appendChild(ta); ta.select();
-                document.execCommand('copy'); document.body.removeChild(ta);
-                btn.classList.add('copied');
-                btn.innerHTML = '✅';
-                setTimeout(function() {
-                    btn.classList.remove('copied');
-                    btn.innerHTML = '📋';
-                }, 1500);
+        async function copyChatHistory() {
+            const btn = document.getElementById('copyChatBtn');
+            const msgs = document.querySelectorAll('#chat .msg');
+            if (!msgs || msgs.length === 0) {
+                alert("Chưa có đoạn chat nào!");
+                return;
+            }
+            let lines = [
+                "=====================================",
+                "  VMEC AI AGENT CHAT TRANSCRIPT",
+                "  Thời gian: " + new Date().toLocaleString('vi-VN'),
+                "=====================================\n"
+            ];
+            msgs.forEach(m => {
+                const isUser = m.classList.contains('user');
+                const role = isUser ? "👤 Bệnh nhân" : "🤖 Trợ lý AI VMEC";
+                lines.push(`[${role}]:\n${m.innerText.trim()}\n---`);
             });
+            await writeToClipboard(lines.join("\n\n"));
+            flashButton(btn, "✅ Đã copy Chat!");
+        }
+
+        async function writeToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    return;
+                } catch (e) {}
+            }
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+        }
+
+        function flashButton(btn, text) {
+            const oldHtml = btn.innerHTML;
+            btn.innerHTML = text;
+            btn.classList.add("copied");
+            setTimeout(() => {
+                btn.innerHTML = oldHtml;
+                btn.classList.remove("copied");
+            }, 2000);
+        }
+
+        function appendMsg(cls, html) {
+            const d = document.createElement('div');
+            d.className = 'msg ' + cls;
+            d.innerHTML = html;
+            document.getElementById('chat').appendChild(d);
+            scrollToBottom();
         }
 
         function scrollToBottom() {
@@ -721,9 +733,7 @@ Bạn có thể mô tả triệu chứng hoặc vấn đề sức khỏe bạn �
         }
 
         function formatMarkdown(text) {
-            // Bold: **text**
             text = text.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
-            // Newlines
             text = text.replace(/\\n/g, '<br>');
             return text;
         }
@@ -746,51 +756,64 @@ async def chat(request: ChatRequest):
     """Multi-turn conversational chat endpoint."""
     session = get_or_create_session(request.session_id)
     user_msg = request.message.strip()
+    session.add_log(f"📥 Tin nhắn mới từ user: '{user_msg}' | Stage hiện tại: {session.stage.value}")
 
     # === STAGE: DONE → Auto-reset for new conversation ===
     if session.stage == Stage.DONE:
+        session.add_log("🔄 Phiên trước đã kết thúc (DONE). Tự động reset phiên mới.")
         session = Session(session.session_id)
         _sessions[session.session_id] = session
 
     # === STAGE: IDLE → Classify intent & begin ===
     if session.stage == Stage.IDLE:
         intent = classify_intent(user_msg)
+        session.add_log(f"1️⃣ Phân loại Ý định: intent='{intent}'")
         log.info("session=%s intent=%s msg=%s", session.session_id, intent, user_msg[:60])
 
         if intent == "greeting":
             return _greeting_response(session)
 
         # Quick emergency screen on first message
-        if quick_emergency_screen(user_msg):
-            return _emergency_response(session, reason="Phát hiện từ khóa cấp cứu trong tin nhắn.")
+        is_emg = quick_emergency_screen(user_msg)
+        session.add_log(f"2️⃣ Tầm soát nhanh Red-flag: quick_emergency={is_emg}")
+        if is_emg:
+            return _emergency_response(session, reason="Phát hiện từ khóa cấp cứu trong tin nhắn ban đầu.")
 
         # Begin gathering symptoms
         session.stage = Stage.GATHERING
         session.add_message("user", user_msg)
+        session.add_log("3️⃣ Chuyển trạng thái → GATHERING (Bắt đầu thu thập triệu chứng)")
 
         # Assess if this single message already sufficient
         sufficiency = assess_sufficiency(session.history_text())
-        if sufficiency.get("verdict") == "sufficient":
-            # Jump straight to summarize
+        verdict = sufficiency.get("verdict", "need_more")
+        missing = sufficiency.get("missing_aspects", [])
+        session.add_log(f"4️⃣ Đánh giá độ đầy đủ: verdict='{verdict}', thiếu={missing}")
+
+        if verdict == "sufficient":
             summary = summarize_symptoms(session.history_text())
             session.symptom_summary = summary
             session.stage = Stage.CONFIRMING
-            session.add_message("assistant", f"Tôi hiểu bạn đang gặp tình trạng sau:\n\n📋 {summary}\n\nBạn xác nhận thông tin trên có đúng không ạ? (Nếu cần bổ sung hay chỉnh sửa, hãy cho tôi biết nhé!)")
+            session.add_log(f"5️⃣ Tổng hợp triệu chứng: '{summary}' → Chuyển trạng thái CONFIRMING")
+            confirm_txt = f"Tôi hiểu bạn đang gặp tình trạng sau:\n\n📋 {summary}\n\nBạn xác nhận thông tin trên có đúng không ạ? (Nếu cần bổ sung hay chỉnh sửa, hãy cho tôi biết nhé!)"
+            session.add_message("assistant", confirm_txt)
             return ChatResponse(
-                response=f"Tôi hiểu bạn đang gặp tình trạng sau:\n\n📋 {summary}\n\nBạn xác nhận thông tin trên có đúng không ạ? (Nếu cần bổ sung hay chỉnh sửa, hãy cho tôi biết nhé!)",
+                response=confirm_txt,
                 session_id=session.session_id,
                 stage=session.stage.value,
+                debug_logs=session.debug_logs,
             )
 
         # Need more info → follow-up
-        missing = sufficiency.get("missing_aspects", [])
         follow_up = generate_follow_up(session.history_text(), missing)
         session.follow_up_count += 1
+        session.add_log(f"5️⃣ Gợi mở triệu chứng (Vòng {session.follow_up_count}/{MAX_FOLLOW_UP_ROUNDS}): '{follow_up}'")
         session.add_message("assistant", follow_up)
         return ChatResponse(
             response=follow_up,
             session_id=session.session_id,
             stage=session.stage.value,
+            debug_logs=session.debug_logs,
         )
 
     # === STAGE: GATHERING → Continue collecting symptoms ===
@@ -798,26 +821,33 @@ async def chat(request: ChatRequest):
         session.add_message("user", user_msg)
 
         # Quick emergency check on every message
-        if quick_emergency_screen(user_msg):
-            return _emergency_response(session, reason="Phát hiện triệu chứng cấp cứu trong mô tả.")
+        is_emg = quick_emergency_screen(user_msg)
+        session.add_log(f"2️⃣ Tầm soát nhanh Red-flag (Gathering): quick_emergency={is_emg}")
+        if is_emg:
+            return _emergency_response(session, reason="Phát hiện triệu chứng cấp cứu trong mô tả bổ sung.")
 
         sufficiency = assess_sufficiency(session.history_text())
+        verdict = sufficiency.get("verdict", "need_more")
+        missing = sufficiency.get("missing_aspects", [])
+        session.add_log(f"4️⃣ Đánh giá độ đầy đủ: verdict='{verdict}', thiếu={missing}, đã hỏi={session.follow_up_count}/{MAX_FOLLOW_UP_ROUNDS} vòng")
 
-        if sufficiency.get("verdict") == "need_more" and session.follow_up_count < MAX_FOLLOW_UP_ROUNDS:
-            missing = sufficiency.get("missing_aspects", [])
+        if verdict == "need_more" and session.follow_up_count < MAX_FOLLOW_UP_ROUNDS:
             follow_up = generate_follow_up(session.history_text(), missing)
             session.follow_up_count += 1
+            session.add_log(f"5️⃣ Gợi mở thêm (Vòng {session.follow_up_count}/{MAX_FOLLOW_UP_ROUNDS}): '{follow_up}'")
             session.add_message("assistant", follow_up)
             return ChatResponse(
                 response=follow_up,
                 session_id=session.session_id,
                 stage=session.stage.value,
+                debug_logs=session.debug_logs,
             )
 
         # Sufficient or max rounds reached → Summarize
         summary = summarize_symptoms(session.history_text())
         session.symptom_summary = summary
         session.stage = Stage.CONFIRMING
+        session.add_log(f"5️⃣ Tổng hợp triệu chứng đầy đủ: '{summary}' → Chuyển trạng thái CONFIRMING")
 
         confirm_msg = (
             f"Cảm ơn bạn đã chia sẻ! Theo những gì bạn mô tả, tôi tổng hợp lại như sau:\n\n"
@@ -830,20 +860,24 @@ async def chat(request: ChatRequest):
             response=confirm_msg,
             session_id=session.session_id,
             stage=session.stage.value,
+            debug_logs=session.debug_logs,
         )
 
     # === STAGE: CONFIRMING → Wait for yes/no ===
     if session.stage == Stage.CONFIRMING:
         intent = classify_intent(user_msg)
+        session.add_log(f"6️⃣ Phân loại Ý định xác nhận: intent='{intent}'")
         log.info("session=%s confirm_intent=%s", session.session_id, intent)
 
         if intent == "confirmation_yes":
             # Deep red-flag screen on confirmed summary
             red_flag = deep_emergency_screen(session.symptom_summary)
+            session.add_log(f"7️⃣ Deep Red-flag Screen: is_emergency={red_flag.get('is_emergency')}, reason='{red_flag.get('reason')}'")
             if red_flag.get("is_emergency"):
                 return _emergency_response(session, reason=red_flag.get("reason", ""))
 
             # RAG + Route specialty
+            session.add_log("8️⃣ Tra cứu RAG trên CockroachDB Cloud & Suy luận chuyên khoa...")
             rag_context = retrieve_cockroach_context(session.symptom_summary, limit=5)
             result = route_specialty(session.symptom_summary, rag_context)
             return _specialty_response(session, result)
@@ -852,6 +886,7 @@ async def chat(request: ChatRequest):
             # User wants to correct or add info → back to gathering
             session.stage = Stage.GATHERING
             session.add_message("user", user_msg)
+            session.add_log("🔄 User phủ nhận/bổ sung thông tin → Quay lại trạng thái GATHERING")
 
             correction_msg = (
                 "Cảm ơn bạn đã bổ sung thông tin! "
@@ -862,12 +897,14 @@ async def chat(request: ChatRequest):
                 response=correction_msg,
                 session_id=session.session_id,
                 stage=session.stage.value,
+                debug_logs=session.debug_logs,
             )
 
         else:
             # Ambiguous → treat as symptom info
             session.stage = Stage.GATHERING
             session.add_message("user", user_msg)
+            session.add_log("⚠️ Ý định chưa rõ ràng → Tiếp tục thu thập thông tin")
             sufficiency = assess_sufficiency(session.history_text())
 
             if sufficiency.get("verdict") == "need_more" and session.follow_up_count < MAX_FOLLOW_UP_ROUNDS:
@@ -879,6 +916,7 @@ async def chat(request: ChatRequest):
                     response=follow_up,
                     session_id=session.session_id,
                     stage=session.stage.value,
+                    debug_logs=session.debug_logs,
                 )
             else:
                 summary = summarize_symptoms(session.history_text())
@@ -893,13 +931,16 @@ async def chat(request: ChatRequest):
                     response=confirm_msg,
                     session_id=session.session_id,
                     stage=session.stage.value,
+                    debug_logs=session.debug_logs,
                 )
 
     # Fallback
+    session.add_log("⚠️ Trigger Fallback handler")
     return ChatResponse(
         response="Xin lỗi, tôi chưa hiểu yêu cầu của bạn. Bạn có thể mô tả lại triệu chứng được không ạ?",
         session_id=session.session_id,
         stage=session.stage.value,
+        debug_logs=session.debug_logs,
     )
 
 

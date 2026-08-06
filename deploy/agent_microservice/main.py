@@ -1,4 +1,4 @@
-"""VMEC AI Agent Standalone Microservice (Versioned Release v3.1.0-vector1024d)."""
+"""VMEC AI Agent Standalone Microservice (Versioned Release v3.2.0-clean-ui)."""
 
 import os
 import sys
@@ -14,7 +14,7 @@ import psycopg
 from google import genai
 from google.genai import types
 
-APP_VERSION = "v3.1.0-vector1024d"
+APP_VERSION = "v3.2.0-clean-ui"
 
 app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version=APP_VERSION)
 
@@ -121,20 +121,9 @@ HTML_TEMPLATE = f"""<!DOCTYPE html>
         .meta-pill {{ background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; }}
         .vector-indicator {{ background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }}
         
-        /* Citations & Widgets Styling */
+        /* Citations Styling */
         .citations-box {{ margin-top: 10px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; color: #94a3b8; display: flex; flex-direction: column; gap: 4px; }}
         .citation-item {{ display: flex; align-items: center; gap: 6px; color: #cbd5e1; }}
-        
-        .widget-section {{ margin-top: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px; }}
-        .widget-title {{ font-size: 0.85rem; color: #94a3b8; font-weight: 500; display: flex; align-items: center; gap: 6px; }}
-        .options-container {{ display: flex; flex-wrap: wrap; gap: 8px; }}
-        .option-btn {{ background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #7dd3fc; padding: 6px 14px; border-radius: 16px; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; font-weight: 500; }}
-        .option-btn:hover {{ background: rgba(56, 189, 248, 0.3); transform: translateY(-1px); }}
-        .booking-card {{ background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2)); border: 1px solid rgba(168, 85, 247, 0.4); padding: 12px 16px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }}
-        .booking-btn {{ background: #8b5cf6; color: white; border: none; padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }}
-        .booking-btn:hover {{ background: #7c3aed; }}
-        .checklist-box {{ background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.08); padding: 10px 14px; border-radius: 12px; font-size: 0.82rem; color: #cbd5e1; }}
-        .checklist-item {{ display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }}
         
         .footer {{ padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 12px; background: rgba(15, 23, 42, 0.4); }}
         input {{ flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 14px 20px; border-radius: 14px; color: white; outline: none; }}
@@ -194,21 +183,6 @@ HTML_TEMPLATE = f"""<!DOCTYPE html>
                         let citeHTML = data.metadata.citations.map(c => `<div class="citation-item">📖 ${{c}}</div>`).join('');
                         metaHTML += `<div class="citations-box"><div style="font-weight:600;margin-bottom:2px;color:#cbd5e1;">📚 Nguồn tri thức tham khảo:</div>${{citeHTML}}</div>`;
                     }}
-
-                    // Render Interactive Quick Options Widget
-                    if (data.metadata.quick_options && data.metadata.quick_options.length > 0) {{
-                        let optsHTML = data.metadata.quick_options.map(opt => `<button class="option-btn" onclick="send('${{opt.replace(/'/g, "\\'")}}')">🔘 ${{opt}}</button>`).join('');
-                        metaHTML += `<div class="widget-section"><div class="widget-title">💡 Chọn nhanh để giúp AI làm rõ hơn:</div><div class="options-container">${{optsHTML}}</div></div>`;
-                    }}
-                    
-                    // Render Pre-Clinical Checklist Widget
-                    if (data.metadata.checklist && data.metadata.checklist.length > 0) {{
-                        let listHTML = data.metadata.checklist.map(item => `<div class="checklist-item">📌 ${{item}}</div>`).join('');
-                        metaHTML += `<div class="widget-section"><div class="widget-title">📋 Lưu ý chuẩn bị trước khi thăm khám:</div><div class="checklist-box">${{listHTML}}</div></div>`;
-                    }}
-
-                    // Render Quick Booking Widget
-                    metaHTML += `<div class="booking-card"><div><strong style="color:#e0e7ff;font-size:0.88rem;">Đặt lịch hẹn thăm khám</strong><br><span style="color:#a5b4fc;font-size:0.78rem;">${{viSpec}}</span></div><button class="booking-btn" onclick="alert('Đã mở trang Đặt lịch hẹn thăm khám tại ${{viSpec}}!')">📅 Đặt lịch ngay</button></div>`;
                 }}
                 
                 appendMsg('agent', data.response + metaHTML);
@@ -261,9 +235,6 @@ async def chat(request: ChatRequest):
             '  "specialty_name_vi": "Chuyên khoa Nội thần kinh",\n'
             '  "sub_specialty_name_vi": "Thần kinh",\n'
             '  "rationale": "Lời tư vấn ân cần cho bệnh nhân...",\n'
-            '  "clarification_needed": false,\n'
-            '  "quick_options": ["Đau kèm buồn nôn", "Đau dữ dội vùng thái dương", "Có sốt kèm theo"],\n'
-            '  "checklist": ["Nghỉ ngơi nơi yên tĩnh", "Ghi lại thời điểm xuất hiện cơn đau"],\n'
             '  "action": "suggest_specialty"\n'
             "}\n\n"
             f"Bệnh nhân hỏi: {request.message}"
@@ -283,8 +254,6 @@ async def chat(request: ChatRequest):
         vi_name = data.get("specialty_name_vi") or SPECIALTY_NAME_MAP.get(spec_id, "Chuyên khoa Nội tổng quát")
         sub_name = data.get("sub_specialty_name_vi", "")
         rationale = data.get("rationale", "Bạn nên thăm khám trực tiếp để được bác sĩ tư vấn kỹ hơn.")
-        quick_opts = data.get("quick_options", [])
-        checklist = data.get("checklist", [])
         
         return ChatResponse(
             response=rationale,
@@ -295,15 +264,13 @@ async def chat(request: ChatRequest):
                 "specialty_name_vi": vi_name,
                 "sub_specialty_name_vi": sub_name,
                 "vector_search_used": True,
-                "citations": citations,
-                "quick_options": quick_opts,
-                "checklist": checklist
+                "citations": citations
             }
         )
     except Exception as e:
         return ChatResponse(
             response="Chào bạn, rất chia sẻ với tình trạng sức khỏe bạn đang gặp phải. Bạn nên thu xếp thăm khám trực tiếp tại cơ sở y tế gần nhất để bác sĩ chẩn đoán chính xác nhé.",
-            metadata={"version": APP_VERSION, "specialty_name_vi": "Chuyên khoa Nội tổng quát", "vector_search_used": True, "citations": citations, "quick_options": [], "checklist": []}
+            metadata={"version": APP_VERSION, "specialty_name_vi": "Chuyên khoa Nội tổng quát", "vector_search_used": True, "citations": citations}
         )
 
 if __name__ == "__main__":

@@ -35,7 +35,11 @@ class SecurityHeadersMiddleware:
         async def send_with_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
                 response_headers = MutableHeaders(scope=message)
+                path = scope.get("path", "")
                 for name, value in self.headers.items():
+                    # Skip CSP on docs/redoc/root routes so Swagger UI and web client load cleanly
+                    if name == "Content-Security-Policy" and (path in ("/", "/docs", "/redoc", "/openapi.json") or path.startswith("/chat-ui")):
+                        continue
                     if name not in response_headers:
                         response_headers[name] = value
             await send(message)

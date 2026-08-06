@@ -16,17 +16,24 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    context.configure(url=config.get_main_option("sqlalchemy.url"), literal_binds=True)
+    context.configure(url=config.get_main_option("sqlalchemy.url"), literal_binds=True, version_num_length=128)
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online() -> None:
+    from sqlalchemy import text
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section), prefix="sqlalchemy.", poolclass=pool.NullPool
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection)
+        try:
+            connection.execute(text("ALTER TABLE IF EXISTS alembic_version ALTER COLUMN version_num TYPE VARCHAR(128);"))
+            connection.commit()
+        except Exception:
+            pass
+        context.configure(connection=connection, version_num_length=128)
         with context.begin_transaction():
             context.run_migrations()
 

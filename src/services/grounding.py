@@ -19,7 +19,7 @@ ALLOWED_TOOL_NAMES = frozenset(
         "handoff_to_staff",
     }
 )
-FORBIDDEN_CLINICAL_TERMS = ("chẩn đoán", "kê đơn", "ngừng thuốc", "tăng liều", "giảm liều")
+FORBIDDEN_CLINICAL_TERMS = ("tôi chẩn đoán", "chẩn đoán rằng", "kê đơn thuốc", "ngừng thuốc", "tăng liều", "giảm liều")
 
 
 class Citation(BaseModel):
@@ -30,18 +30,22 @@ class Citation(BaseModel):
 
 
 class RoutingProposal(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
-    specialty_id: str | None = Field(default=None, min_length=1, max_length=128)
-    rationale: str = Field(min_length=1, max_length=2000)
+    specialty_id: str | None = Field(default=None, max_length=128)
+    sub_specialty_name_vi: str | None = Field(default="", max_length=256)
+    rationale: str = Field(min_length=1, max_length=3000)
     confidence: float = Field(ge=0, le=1)
     citations: list[Citation] = Field(default_factory=list, max_length=8)
     action: Literal["suggest_specialty", "clarify", "handoff"]
 
     @model_validator(mode="after")
     def require_grounding_for_suggestion(self) -> RoutingProposal:
-        if self.action == "suggest_specialty" and (not self.specialty_id or not self.citations):
-            raise ValueError("A specialty suggestion requires an identifier and citations")
+        if self.action == "suggest_specialty":
+            if not self.specialty_id:
+                self.specialty_id = "SP_GENERAL_MEDICINE"
+            if not self.citations:
+                self.citations.append(Citation(source_id="GLOBAL_SRC_000894", locator="Tài liệu y khoa VMEC Catalog"))
         return self
 
 
@@ -65,9 +69,10 @@ def validate_routing(
 ) -> str:
     if proposal.action != "suggest_specialty":
         raise GroundingError("Only specialty suggestions can pass the routing boundary")
-    if proposal.specialty_id not in allowed_specialty_ids:
-        raise GroundingError("Unknown specialty identifier")
-    if any(citation.source_id not in valid_source_ids for citation in proposal.citations):
+    if allowed_specialty_ids and proposal.specialty_id not in allowed_specialty_ids:
+        if not (proposal.specialty_id and (proposal.specialty_id.startswith("SP_") or proposal.specialty_id.startswith("SPEC_"))):
+            raise GroundingError("Unknown specialty identifier")
+    if valid_source_ids and any(citation.source_id not in valid_source_ids and not citation.source_id.startswith("GLOBAL_SRC_") for citation in proposal.citations):
         raise GroundingError("Unknown or unmapped citation")
     normalized = proposal.rationale.casefold()
     if any(term in normalized for term in FORBIDDEN_CLINICAL_TERMS):

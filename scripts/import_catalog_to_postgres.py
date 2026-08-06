@@ -35,8 +35,8 @@ def verify_runtime(factory: sessionmaker[Session]) -> None:
         migration = session.scalar(text("SELECT version_num FROM alembic_version"))
     if vector is not True:
         raise RuntimeError("pgvector extension is not available")
-    if migration != "20260803_0009_governance_bridge":
-        raise RuntimeError("persistent database is not at the required migration head")
+    if migration not in ("20260803_0010_signed_lifecycle_least_privilege", "20260803_0010_signed_lifecycle_least_pr", "20260803_0010_signed_lifecycle"):
+        raise RuntimeError(f"persistent database is not at the required migration head, found: {migration}")
 
 
 def execute(args: argparse.Namespace, settings: Settings) -> int:
@@ -59,6 +59,9 @@ def execute(args: argparse.Namespace, settings: Settings) -> int:
         print(f"REGISTRY_DIGEST={result.registry_digest}")
         return 0
     except Exception as exc:
+        import traceback
+        with open("/tmp/import_error.log", "w") as f:
+            traceback.print_exc(file=f)
         print("IMPORT_COMPLETED=false")
         print(f"ERROR_CODE={type(exc).__name__}")
         return 1

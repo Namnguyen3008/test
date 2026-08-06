@@ -165,3 +165,14 @@ the in-app control surface kept the submit control disabled; the independent Pla
 | Full Python suite after V8 remediation | PASS — `186 passed, 16 skipped`, one dependency deprecation warning. Skips are not PASS. |
 | Local age encryption preflight | PASS — in-memory round trip through the ACL-protected generated age identity/recipient; only the encrypted non-sensitive preflight artifact remains. This is not a PostgreSQL backup/restore drill. |
 | PostgreSQL/Redis/migrations/role tests/imports/promotion/embeddings/E2E/restore/staging | NOT RUN — blocked by the documented Windows UAC/reboot prerequisite and later real human authorization gates. |
+
+## 2026-08-03 Asia/Saigon - V8 continuation hardening
+
+| Check | Result |
+|---|---|
+| URL/backup hardening | PASS - dedicated PostgreSQL URL parsing avoids manual credential splitting; backup uses `vmec_v8_backup`, `--no-owner --no-acl`, separate restore identity, and fails closed on absent/malformed/mismatched archive digest sidecar. |
+| Focused verification | PASS - Ruff, mypy, `tests/test_local_encrypted_backup.py`, and `tests/test_security/test_v8_local_runtime_contract.py`: `5 passed`. |
+| Full Python suite | PASS - `187 passed, 16 skipped, 1 warning in 36.22s`. The 16 persistent-runtime skips are not PASS. |
+| Compose configuration | PASS offline - `docker compose --env-file .secrets/v8/runtime.env config --quiet`; no environment values printed. |
+| Helm validation | PASS offline - `helm lint infra/helm/vmec` and `helm template vmec-local infra/helm/vmec --namespace vmec-staging`; kind install remains NOT RUN because Docker Engine is unavailable. |
+| PostgreSQL backup/restore | NOT RUN - the age preflight is not a database restore drill. Docker/WSL UAC/reboot gate remains open. |

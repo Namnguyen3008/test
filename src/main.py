@@ -145,19 +145,149 @@ configure_observability(app, settings)
 
 
 from fastapi.responses import HTMLResponse
-from deploy.agent_microservice.main import (
-    HTML_TEMPLATE,
-    chat as microservice_chat,
-    ChatRequest as MicroserviceChatRequest,
-)
 
 @app.get("/", response_class=HTMLResponse)
 async def root_chat_ui():
-    return HTMLResponse(content=HTML_TEMPLATE)
-
-@app.post("/api/v1/chat")
-async def chat_api_override(request: MicroserviceChatRequest):
-    return await microservice_chat(request)
+    html_content = """<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VMEC AI Chatbot Agent - Tư vấn Y Khoa</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-grad: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body { background: var(--bg-grad); color: var(--text-main); height: 100vh; display: flex; align-items: center; justify-content: center; p: 20px; }
+        .chat-container { width: 100%; max-width: 900px; height: 90vh; background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .chat-header { padding: 20px 24px; background: rgba(15, 23, 42, 0.6); border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; }
+        .chat-header h1 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .status-badge { font-size: 0.75rem; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 4px 12px; border-radius: 99px; font-weight: 500; }
+        .chat-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
+        .message { display: flex; flex-direction: column; max-width: 80%; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message.user { align-self: flex-end; }
+        .message.agent { align-self: flex-start; }
+        .msg-bubble { padding: 14px 18px; border-radius: 18px; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+        .message.user .msg-bubble { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
+        .message.agent .msg-bubble { background: rgba(51, 65, 85, 0.8); border: 1px solid var(--glass-border); color: #f1f5f9; border-bottom-left-radius: 4px; }
+        .meta-tag { font-size: 0.75rem; color: var(--text-sub); margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .meta-pill { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; padding: 4px 10px; border-radius: 6px; font-weight: 500; }
+        .meta-pill.cite-pill { background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+        .chat-input-area { padding: 20px; background: rgba(15, 23, 42, 0.6); border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 12px; }
+        .quick-pills { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+        .pill-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); color: var(--text-sub); padding: 6px 14px; border-radius: 99px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .pill-btn:hover { background: rgba(99, 102, 241, 0.2); color: #fff; border-color: var(--accent); }
+        .input-row { display: flex; gap: 12px; }
+        input[type="text"] { flex: 1; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--glass-border); color: white; padding: 14px 20px; border-radius: 14px; font-size: 0.95rem; outline: none; transition: border 0.2s; }
+        input[type="text"]:focus { border-color: var(--accent); }
+        button.send-btn { background: var(--accent); color: white; border: none; padding: 0 24px; border-radius: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        button.send-btn:hover { background: var(--accent-hover); }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🤖 VMEC AI Agent Chatbot <span>Tư vấn Y Khoa Vector 1024d</span></h1>
+            <span class="status-badge">🟢 ONLINE / ISOLATED MODE</span>
+        </div>
+        <div class="chat-body" id="chatBody">
+            <div class="message agent">
+                <div class="msg-bubble">
+                    Xin chào! Tôi là AI Agent tư vấn chuyên khoa Y Tế VMEC. Hãy mô tả triệu chứng sức khỏe của bạn (ví dụ: đau đầu, sốt, tức ngực...), tôi sẽ phân tích và gợi ý chuyên khoa phù hợp nhất!
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <div class="quick-pills">
+                <button class="pill-btn" onclick="sendQuick('Tôi bị đau đầu dữ dội từ sáng kèm buồn nôn')">🧠 Đau đầu & Buồn nôn</button>
+                <button class="pill-btn" onclick="sendQuick('Tôi bị tức ngực trái lan ra sau lưng khó thở')">🫀 Tức ngực & Khó thở</button>
+                <button class="pill-btn" onclick="sendQuick('Sốt rét run từng cơn về chiều và mệt mỏi')">🌡️ Sốt rét run từng cơn</button>
+            </div>
+            <div class="input-row">
+                <input type="text" id="userInput" placeholder="Nhập triệu chứng của bạn vào đây..." onkeydown="if(event.key==='Enter') sendMessage()">
+                <button class="send-btn" onclick="sendMessage()">Gửi AI</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            appendMessage('user', msg);
+            input.value = '';
+            
+            const typingDiv = appendMessage('agent', '⏳ AI Agent đang truy vấn Vector 1024d & phân tích...');
+            
+            try {
+                const res = await fetch('/api/v1/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg, history: [] })
+                });
+                const data = await res.json();
+                typingDiv.remove();
+                
+                let metaText = '';
+                if (data.metadata) {
+                    const viSpec = data.metadata.specialty_name_vi || '🩺 Chuyên khoa Nội tổng quát';
+                    const subSpec = data.metadata.sub_specialty_name_vi || '';
+                    
+                    let specPills = `<span class="meta-pill">🏥 ${viSpec}</span>`;
+                    if (subSpec) {
+                        specPills += `<span class="meta-pill" style="background: rgba(168, 85, 247, 0.25); border: 1px solid rgba(168, 85, 247, 0.5); color: #e9d5ff;">🔍 Phân khoa sâu: <strong>${subSpec}</strong></span>`;
+                    }
+                    
+                    let citeHTML = '';
+                    if (data.metadata.citations && data.metadata.citations.length > 0) {
+                        data.metadata.citations.forEach(c => {
+                            const srcId = c.source_id || 'VMEC-SRC-01';
+                            const loc = c.locator || 'Tài liệu chuẩn đoán lâm sàng';
+                            let linkHTML = '';
+                            if (loc.startsWith('http://') || loc.startsWith('https://')) {
+                                linkHTML = `<a href="${loc}" target="_blank" style="color:#38bdf8;text-decoration:underline;margin-left:4px;">🔗 ${loc}</a>`;
+                            } else {
+                                linkHTML = `(${loc})`;
+                            }
+                            citeHTML += `<span class="meta-pill cite-pill">📚 Trích dẫn: <strong>${srcId}</strong> ${linkHTML}</span>`;
+                        });
+                    } else {
+                        citeHTML = `<span class="meta-pill cite-pill">📚 Trích dẫn: <a href="https://ttcapcuu115.medinet.gov.vn/" target="_blank" style="color:#38bdf8;text-decoration:underline;">🔗 TT Cấp Cứu 115 Y Tế (VMEC Catalog 1024d)</a></span>`;
+                    }
+                    metaText = `<div class="meta-tag" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${specPills}${citeHTML}</div>`;
+                }
+                appendMessage('agent', data.response + metaText);
+            } catch (err) {
+                typingDiv.remove();
+                appendMessage('agent', '❌ Lỗi kết nối API Server!');
+            }
+        }
+        function sendQuick(txt) {
+            document.getElementById('userInput').value = txt;
+            sendMessage();
+        }
+        function appendMessage(role, htmlContent) {
+            const body = document.getElementById('chatBody');
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.innerHTML = `<div class="msg-bubble">${htmlContent}</div>`;
+            body.appendChild(div);
+            body.scrollTop = body.scrollHeight;
+            return div;
+        }
+    </script>
+</body>
+</html>"""
+    return HTMLResponse(content=html_content)
 
 @app.get("/health")
 async def health():

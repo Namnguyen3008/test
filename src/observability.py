@@ -73,15 +73,68 @@ class SafeRequestTelemetryMiddleware:
             LATENCY.labels(method=method, route=route).observe(duration)
             span_context = trace.get_current_span().get_span_context()
             trace_id = f"{span_context.trace_id:032x}" if span_context.is_valid else ""
+            latency_ms = round(duration * 1000)
+            deep_telemetry.record_http(method=method, path=str(scope.get("path", "")), status=status, duration_ms=latency_ms)
             event: Mapping[str, object] = {
                 "event": "http_request",
                 "method": method,
                 "route": route,
                 "status": status,
-                "latency_ms": round(duration * 1000),
+                "latency_ms": latency_ms,
                 "trace_id": trace_id,
             }
             logger.info(json.dumps(event, sort_keys=True, separators=(",", ":")))
+
+
+from collections import deque
+from datetime import UTC, datetime
+
+
+class DeepTelemetry:
+    """In-memory thread-safe deep telemetry buffer for system debug reports."""
+
+    def __init__(self, max_items: int = 50) -> None:
+        self._chat_traces: deque[dict[str, Any]] = deque(maxlen=max_items)
+        self._http_traces: deque[dict[str, Any]] = deque(maxlen=max_items)
+
+    def record_chat(
+        self,
+        user_msg: str,
+        history_len: int,
+        response_text: str,
+        emergency: bool,
+        metadata: dict[str, Any],
+        duration_ms: float,
+    ) -> None:
+        self._chat_traces.appendleft({
+            "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "user_message": user_msg[:250],
+            "history_length": history_len,
+            "response_preview": response_text[:250],
+            "emergency": emergency,
+            "action": metadata.get("action", "suggest_specialty" if metadata.get("specialty_id") else "unknown"),
+            "specialty_id": metadata.get("specialty_id", "N/A"),
+            "confidence": metadata.get("confidence", "N/A"),
+            "duration_ms": round(duration_ms, 2),
+        })
+
+    def record_http(self, method: str, path: str, status: int, duration_ms: float) -> None:
+        self._http_traces.appendleft({
+            "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "method": method,
+            "path": path,
+            "status": status,
+            "duration_ms": round(duration_ms, 2),
+        })
+
+    def get_chat_traces(self) -> list[dict[str, Any]]:
+        return list(self._chat_traces)
+
+    def get_http_traces(self) -> list[dict[str, Any]]:
+        return list(self._http_traces)
+
+
+deep_telemetry = DeepTelemetry()
 
 
 def _sanitize_server_span(span: Any, scope: dict[str, Any]) -> None:

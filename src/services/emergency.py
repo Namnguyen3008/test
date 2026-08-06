@@ -181,8 +181,8 @@ _SEED_RULES: Final = VersionedEmergencyRules(
     rules=tuple(
         EmergencyRule(rule_id, phrase, category)
         for rule_id, category, phrases in (
-            ("EMERGENCY_BREATHING", "adult", ("không thở được", "khó thở dữ dội", "ngừng thở")),
-            ("EMERGENCY_CHEST", "adult", ("đau ngực dữ dội", "đau thắt ngực")),
+            ("EMERGENCY_BREATHING", "adult", ("không thở được", "khó thở dữ dội", "ngừng thở", "khó thở dồn dập")),
+            ("EMERGENCY_CHEST", "adult", ("đau ngực dữ dội", "đau thắt ngực", "đau nhói ngực")),
             ("EMERGENCY_STROKE", "adult", ("méo miệng", "liệt nửa người", "nói khó đột ngột")),
             ("EMERGENCY_BLEEDING", "adult", ("chảy máu không cầm", "xuất huyết nhiều")),
             ("EMERGENCY_UNCONSCIOUS", "all", ("bất tỉnh", "hôn mê", "không đánh thức được")),

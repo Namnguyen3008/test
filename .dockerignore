@@ -23,6 +23,7 @@ data/
 var/
 tmp/
 logs/
+node_modules/
 *.log
 coverage.xml
 htmlcov/

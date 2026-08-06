@@ -49,6 +49,7 @@ services:
 
   migrate:
     <<: *runtime
+    restart: "no"
     build: { context: ., dockerfile: Dockerfile }
     command: ["alembic", "upgrade", "head"]
     environment:
@@ -89,6 +90,8 @@ services:
     volumes:
       - ./data:/app/data:ro
       - reports:/app/data/reports
+    healthcheck:
+      disable: true
     depends_on:
       migrate: { condition: service_completed_successfully }
       provision-roles: { condition: service_completed_successfully }
@@ -96,6 +99,8 @@ services:
 
   scheduler:
     <<: *runtime
+    healthcheck:
+      disable: true
     build: { context: ., dockerfile: Dockerfile }
     command:
       ["celery", "-A", "apps.worker.__main__:app", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
@@ -112,6 +117,7 @@ services:
 
   provision-roles:
     <<: *runtime
+    restart: "no"
     build: { context: ., dockerfile: Dockerfile }
     command: ["python", "-m", "scripts.provision_local_postgres_roles"]
     environment:
@@ -129,6 +135,7 @@ services:
 
   governance-promote:
     <<: *runtime
+    restart: "no"
     profiles: [governance]
     build: { context: ., dockerfile: Dockerfile }
     command:

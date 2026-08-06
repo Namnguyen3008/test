@@ -1,12 +1,12 @@
 """Signed release lifecycle and PostgreSQL least-privilege roles.
 
-Revision ID: 20260803_0010_signed_lifecycle_least_privilege
+Revision ID: 20260803_0010_signed_lifecycle
 Revises: 20260803_0009_governance_bridge
 """
 
 from alembic import op
 
-revision = "20260803_0010_signed_lifecycle_least_privilege"
+revision = "20260803_0010_signed_lifecycle"
 down_revision = "20260803_0009_governance_bridge"
 branch_labels = None
 depends_on = None

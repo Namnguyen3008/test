@@ -120,3 +120,10 @@ V8 local rehearsal uses random per-role PostgreSQL passwords, distinct Ed25519 k
 material under an ignored, current-user ACL-restricted `.secrets/v8/` directory. The source repository only contains
 the provisioner and non-secret contracts. Generated governance keys create unsigned templates; they cannot stand in
 for reviewer/owner identity, authorization, approval, or production signing.
+
+## ADR-026: Encrypted rehearsal restore verifies artifacts before decryption
+
+The V8 local backup flow uses the dedicated read-only backup login for `pg_dump`, a separately declared restore login
+only for the isolated target, and portable `--no-owner --no-acl` archives. A SHA-256 sidecar is mandatory and is
+verified before decrypting an archive. This narrows accidental privilege use and detects archive modification, but is
+not evidence of a completed PostgreSQL restore drill until it is executed against the persistent stack.

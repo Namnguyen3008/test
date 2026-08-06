@@ -53,6 +53,145 @@ class RoutingRetriever(Protocol):
     async def retrieve(self, query: str, *, limit: int = 6) -> RoutingContext: ...
 
 
+SPECIALTY_CODE_MAP: dict[str, str] = {
+    "SP_CARDIOLOGY": "SP_CARDIOLOGY",
+    "SP_CARD": "SP_CARDIOLOGY",
+    "CARDIOLOGY": "SP_CARDIOLOGY",
+    "SP_DERMATOLOGY": "SP_DERMATOLOGY",
+    "SP_ENT": "SP_ENT",
+    "SP_GASTRO": "SP_GASTRO",
+    "SP_GENERAL_MEDICINE": "SP_GENERAL_MEDICINE",
+    "SP_INFECTIOUS": "SP_INFECTIOUS",
+    "SP_MENTAL_HEALTH": "SP_MENTAL_HEALTH",
+    "SP_NEUROLOGY": "SP_NEUROLOGY",
+    "SP_OBGYN": "SP_OBGYN",
+    "SP_OPHTHALMOLOGY": "SP_OPHTHALMOLOGY",
+    "SP_ORTHOPEDICS": "SP_ORTHOPEDICS",
+    "SP_PEDIATRICS": "SP_PEDIATRICS",
+    "SP_RESPIRATORY": "SP_RESPIRATORY",
+    "SP_UROLOGY": "SP_UROLOGY",
+    "SP_PED": "SP_PEDIATRICS",
+    "SP_RESP": "SP_RESPIRATORY",
+    "SP_GENERAL_MED": "SP_GENERAL_MEDICINE",
+    "SP_GM": "SP_GENERAL_MEDICINE",
+    "GENERAL_MEDICINE": "SP_GENERAL_MEDICINE",
+    "SPEC_GENERAL": "SP_GENERAL_MEDICINE",
+    "EMERGENCY_MEDICINE": "SP_GENERAL_MEDICINE",
+    "HUMAN_TRIAGE": "SP_GENERAL_MEDICINE",
+    "K14": "SP_GENERAL_MEDICINE",
+    "SP_EM": "SP_GENERAL_MEDICINE",
+    "K17": "SP_GENERAL_MEDICINE",
+    "SP_NEURO": "SP_NEUROLOGY",
+    "SP_MSK": "SP_ORTHOPEDICS",
+    "SP_DERM": "SP_DERMATOLOGY",
+    "SP_ALLERGY": "SP_DERMATOLOGY",
+    "SPEC_ALLERGY_IMMUNOLOGY": "SP_DERMATOLOGY",
+    "K13": "SP_DERMATOLOGY",
+    "OTOLARYNGOLOGY": "SP_ENT",
+    "OPHTHALMOLOGY": "SP_OPHTHALMOLOGY",
+    "UROLOGY": "SP_UROLOGY",
+    "NEPHROLOGY": "SP_UROLOGY",
+    "ENDOCRINOLOGY": "SP_GENERAL_MEDICINE",
+    "HEMATOLOGY": "SP_GENERAL_MEDICINE",
+    "SP_INF": "SP_INFECTIOUS",
+    "K11": "SP_INFECTIOUS",
+    "K27": "SP_OBGYN",
+    "K15": "SP_MENTAL_HEALTH",
+    "K02.1": "SP_GENERAL_MEDICINE",
+    "DENTISTRY_ORAL_MAXILLOFACIAL": "SP_GENERAL_MEDICINE",
+}
+
+VIETNAMESE_SPECIALTY_NAMES: dict[str, str] = {
+    "SP_CARDIOLOGY": "Chuyên khoa Tim mạch",
+    "CARDIOLOGY": "Chuyên khoa Tim mạch",
+    "CARD": "Chuyên khoa Tim mạch",
+    "SP_DERMATOLOGY": "Chuyên khoa Da liễu",
+    "DERMATOLOGY": "Chuyên khoa Da liễu",
+    "DERM": "Chuyên khoa Da liễu",
+    "SP_ENT": "Chuyên khoa Tai Mũi Họng",
+    "ENT": "Chuyên khoa Tai Mũi Họng",
+    "OTOLARYNGOLOGY": "Chuyên khoa Tai Mũi Họng",
+    "EAR_NOSE_THROAT": "Chuyên khoa Tai Mũi Họng",
+    "SP_GASTRO": "Chuyên khoa Tiêu hóa",
+    "SP_GASTROENTEROLOGY": "Chuyên khoa Tiêu hóa",
+    "GASTROENTEROLOGY": "Chuyên khoa Tiêu hóa",
+    "GASTRO": "Chuyên khoa Tiêu hóa",
+    "SP_GENERAL_MEDICINE": "Chuyên khoa Nội tổng quát",
+    "GENERAL_MEDICINE": "Chuyên khoa Nội tổng quát",
+    "GENERAL": "Chuyên khoa Nội tổng quát",
+    "SP_INFECTIOUS": "Chuyên khoa Truyền nhiễm",
+    "INFECTIOUS": "Chuyên khoa Truyền nhiễm",
+    "INFECTIOUS_DISEASE": "Chuyên khoa Truyền nhiễm",
+    "INFECTIOUS_DISEASES": "Chuyên khoa Truyền nhiễm",
+    "SP_MENTAL_HEALTH": "Chuyên khoa Sức khỏe tâm thần",
+    "MENTAL_HEALTH": "Chuyên khoa Sức khỏe tâm thần",
+    "PSYCHIATRY": "Chuyên khoa Sức khỏe tâm thần",
+    "SP_NEUROLOGY": "Chuyên khoa Nội thần kinh",
+    "NEUROLOGY": "Chuyên khoa Nội thần kinh",
+    "NEURO": "Chuyên khoa Nội thần kinh",
+    "SP_OBGYN": "Chuyên khoa Sản phụ khoa",
+    "OBGYN": "Chuyên khoa Sản phụ khoa",
+    "OBSTETRICS_GYNECOLOGY": "Chuyên khoa Sản phụ khoa",
+    "OBSTETRICS": "Chuyên khoa Sản phụ khoa",
+    "GYNECOLOGY": "Chuyên khoa Sản phụ khoa",
+    "SP_OPHTHALMOLOGY": "Chuyên khoa Mắt",
+    "OPHTHALMOLOGY": "Chuyên khoa Mắt",
+    "EYE": "Chuyên khoa Mắt",
+    "SP_ORTHOPEDICS": "Chuyên khoa Cơ xương khớp",
+    "ORTHOPEDICS": "Chuyên khoa Cơ xương khớp",
+    "ORTHOPEDIC": "Chuyên khoa Cơ xương khớp",
+    "MSK": "Chuyên khoa Cơ xương khớp",
+    "SP_PEDIATRICS": "Chuyên khoa Nhi",
+    "PEDIATRICS": "Chuyên khoa Nhi",
+    "PEDIATRIC": "Chuyên khoa Nhi",
+    "PED": "Chuyên khoa Nhi",
+    "SP_RESPIRATORY": "Chuyên khoa Hô hấp",
+    "SP_PULMONOLOGY": "Chuyên khoa Hô hấp",
+    "PULMONOLOGY": "Chuyên khoa Hô hấp",
+    "RESPIRATORY": "Chuyên khoa Hô hấp",
+    "RESP": "Chuyên khoa Hô hấp",
+    "SP_UROLOGY": "Chuyên khoa Nam học - Tiết niệu",
+    "UROLOGY": "Chuyên khoa Nam học - Tiết niệu",
+    "NEPHROLOGY": "Chuyên khoa Tiết niệu - Thận",
+    "ONCOLOGY": "Chuyên khoa Ung bướu",
+    "ALLERGY_IMMUNOLOGY": "Chuyên khoa Dị ứng - Miễn dịch",
+}
+
+def get_specialty_name_vi(code: str | None) -> str:
+    if not code:
+        return "Chuyên khoa Nội tổng quát"
+    
+    normalized_key = str(code).strip().upper().replace(" ", "_")
+    raw_key = normalized_key[3:] if normalized_key.startswith("SP_") else normalized_key
+        
+    if normalized_key in VIETNAMESE_SPECIALTY_NAMES:
+        return VIETNAMESE_SPECIALTY_NAMES[normalized_key]
+    if raw_key in VIETNAMESE_SPECIALTY_NAMES:
+        return VIETNAMESE_SPECIALTY_NAMES[raw_key]
+    
+    mapped = SPECIALTY_CODE_MAP.get(normalized_key, SPECIALTY_CODE_MAP.get(raw_key, str(code)))
+    if mapped in VIETNAMESE_SPECIALTY_NAMES:
+        return VIETNAMESE_SPECIALTY_NAMES[mapped]
+        
+    clean_name = str(code).replace("SP_", "").replace("SPEC_", "").replace("_", " ").title()
+    return f"Chuyên khoa {clean_name}"
+
+VI_STOP_WORDS: set[str] = {
+    "tôi", "bị", "có", "từ", "ngày", "nay", "muốn", "cho", "và", "nhưng",
+    "rồi", "ở", "trong", "đang", "được", "là", "khi", "lại", "sau", "hơn",
+    "mình", "nhà", "ra", "đi", "vào", "thì", "mà", "đã", "các", "những",
+    "một", "hai", "ba", "với", "đến", "này", "đó", "hay", "hoặc", "cũng"
+}
+
+
+def _extract_ngrams(text: str) -> list[str]:
+    tokens = [t.casefold() for t in _TOKEN.findall(text)]
+    unigrams = tokens
+    bigrams = [" ".join(tokens[i:i+2]) for i in range(len(tokens)-1)]
+    trigrams = [" ".join(tokens[i:i+3]) for i in range(len(tokens)-2)]
+    return unigrams + bigrams + trigrams
+
+
 class CatalogRoutingRetriever:
     """Read-only, PHI-minimized runtime snapshot compiled from the VMEC catalog."""
 
@@ -96,7 +235,8 @@ class CatalogRoutingRetriever:
                 candidate = candidate_from_dataset_row("routing_rows", row_id, content_hash, payload)
                 if not retrieval_eligibility(candidate, mode=mode, citations=ledger).eligible:
                     continue
-                specialty_id = str(payload.get("primary_specialty_code", "")).strip()
+                raw_code = str(payload.get("primary_specialty_code", "")).strip()
+                specialty_id = raw_code if raw_code in specialty_ids else SPECIALTY_CODE_MAP.get(raw_code, raw_code)
                 if specialty_id not in specialty_ids:
                     continue
                 citations = ledger.resolve(candidate.source_ids)
@@ -113,12 +253,21 @@ class CatalogRoutingRetriever:
             connection.close()
 
     async def retrieve(self, query: str, *, limit: int = 6) -> RoutingContext:
-        query_tokens = {token.casefold() for token in _TOKEN.findall(query)}
-        scored: list[tuple[int, str, RoutingRecord]] = []
+        query_terms = [t for t in _extract_ngrams(query) if t not in VI_STOP_WORDS]
+        if not query_terms:
+            query_terms = _extract_ngrams(query)
+        scored: list[tuple[float, str, RoutingRecord]] = []
         for record in self._records:
-            tokens = {token.casefold() for token in _TOKEN.findall(record.text)}
-            score = len(query_tokens & tokens)
-            if score:
+            rec_terms = set(_extract_ngrams(record.text))
+            score = 0.0
+            matched_terms = 0
+            for term in query_terms:
+                if term in rec_terms:
+                    words = len(term.split())
+                    mult = 10.0 if words == 3 else (5.0 if words == 2 else 1.0)
+                    score += mult
+                    matched_terms += 1
+            if score > 0 and matched_terms > 0:
                 scored.append((score, record.record_id, record))
         scored.sort(key=lambda item: (-item[0], item[1]))
         return RoutingContext(
@@ -137,22 +286,35 @@ class PostgresRoutingRetriever:
         self._gateway = gateway
 
     async def retrieve(self, query: str, *, limit: int = 6) -> RoutingContext:
-        result = await self._retriever.retrieve(query, limit=limit)
-        records = tuple(
-            RoutingRecord(
-                record_id=item.record_id,
-                text=item.text,
-                specialty_id=item.specialty_id,
-                source_ids=tuple(citation.source_id for citation in item.citations),
+        try:
+            result = await self._retriever.retrieve(query, limit=limit)
+            records = tuple(
+                RoutingRecord(
+                    record_id=item.record_id,
+                    text=item.text,
+                    specialty_id=item.specialty_id,
+                    source_ids=tuple(citation.source_id for citation in item.citations),
+                )
+                for item in result.records
             )
-            for item in result.records
-        )
-        return RoutingContext(
-            records,
-            result.mode.value,
-            frozenset(record.specialty_id for record in records),
-            {"adapter": "postgres", **result.diagnostics},
-        )
+            return RoutingContext(
+                records,
+                result.mode.value,
+                frozenset(record.specialty_id for record in records),
+                {"adapter": "postgres", **result.diagnostics},
+            )
+        except Exception as exc:
+            import logging
+            logging.getLogger("vmec.routing").warning(
+                f"PostgreSQL hybrid retrieval unavailable ({exc}) — falling back to Catalog lexical retrieval"
+            )
+            settings = get_settings()
+            fallback = CatalogRoutingRetriever.from_catalog(
+                Path(settings.emergency_catalog_path),
+                release_id=settings.emergency_release_id or "vmec-development-v2",
+                mode=settings.app_data_mode,
+            )
+            return await fallback.retrieve(query, limit=limit)
 
     async def aclose(self) -> None:
         await self._gateway.aclose()

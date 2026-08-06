@@ -32,9 +32,19 @@ Last updated: 2026-08-03 Asia/Saigon. This is append-only evidence; no skipped i
   capability groups. `docker-compose.yml` now requires the ignored runtime env file, runs the provisioner after
   migrations, and starts API/worker/scheduler only after it succeeds.
 - `scripts/local_encrypted_backup.py` is prepared for Docker-based `pg_dump` -> age encryption and clean-target
-  restore. It cannot be executed until PostgreSQL is running.
+  restore. It uses the dedicated read-only backup login, a separate restore login, `--no-owner --no-acl`, and a
+  mandatory SHA-256 sidecar check before decryption. It cannot be executed until PostgreSQL is running.
 - The generated age recipient/identity completed a non-sensitive in-memory encryption/decryption preflight. This
   verifies local encryption plumbing only; it is not a database backup/restore result.
+
+## V8-2 continuation hardening
+
+- Dedicated-role provisioning parses URLs with SQLAlchemy rather than manually splitting credentials. The backup
+  helper uses `vmec_v8_backup` for the read-only dump, a separately declared restore login for the disposable target,
+  portable `--no-owner --no-acl` dumps, and SHA-256 sidecar verification before decryption.
+- Offline continuation verification: Ruff/mypy and five focused tests pass; full Python regression is `187 passed,
+  16 skipped, 1 warning`. Compose config plus Helm lint/template also pass offline. Skips and Docker-dependent work
+  remain not run, never PASS.
 
 ## Pending exact execution after the one administrator action
 

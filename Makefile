@@ -1,10 +1,13 @@
-.PHONY: run test lint format typecheck check clean
+.PHONY: run test lint format typecheck check clean eval-medagent
 
 run:
 	uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 test:
 	pytest tests/ -v
+
+eval-medagent:
+	python scripts/run_medagent_benchmark.py
 
 lint:
 	ruff check src/ tests/
@@ -21,3 +24,4 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type d -name .pytest_cache -exec rm -rf {} +
 	find . -type d -name .ruff_cache -exec rm -rf {} +
+

@@ -10,21 +10,37 @@ SAFE_HANDOFF = "Chưa đủ dữ liệu có nguồn để định hướng an to
 
 
 async def normalize_node(state: AgentState) -> dict:
-    return {"query": state.get("query", "").strip()}
+    latest = state.get("query", "").strip()
+    history = state.get("history", [])
+    if history:
+        user_queries = [h.get("content", "") for h in history if h.get("role") == "user"]
+        if latest not in user_queries:
+            user_queries.append(latest)
+        combined_query = " ".join(user_queries[-3:])
+    else:
+        combined_query = latest
+    return {"query": combined_query, "latest_query": latest}
 
 
 async def emergency_node(state: AgentState) -> dict:
-    result = screen_emergency(state.get("query", ""))
+    latest = state.get("latest_query", state.get("query", ""))
+    result = screen_emergency(latest)
+    if not result.emergency:
+        result = screen_emergency(state.get("query", ""))
     if not result.emergency:
         return {"emergency": False}
     return {
         "emergency": True,
-        "response": result.action,
+        "response": f"🚨 **CẢNH BÁO CẤP CỨU KHẨN CẤP**: {result.action}",
         "metadata": {
             "emergency_rule_ids": result.rule_ids,
             "emergency_ruleset_version": result.ruleset_version,
             "emergency_data_mode": result.data_mode,
             "routine_booking_blocked": True,
+            "specialty_id": "SP_EMERGENCY",
+            "specialty_name_vi": "🚨 KHOA CẤP CỨU (KHẨN CẤP 115)",
+            "sub_specialty_name_vi": "Xử trí Cấp cứu Ban đầu",
+            "citations": [{"source_id": "EMERGENCY_RED_FLAG_01", "locator": "https://ttcapcuu115.medinet.gov.vn/"}],
         },
     }
 
@@ -38,6 +54,9 @@ async def retrieve_node(state: AgentState) -> dict:
     }
     if not context.records:
         return {"response": SAFE_HANDOFF, "error": "no_grounded_context", "metadata": metadata}
+    from src.services.routing import SPECIALTY_CODE_MAP
+    all_allowed_specs = set(context.allowed_specialty_ids) | set(SPECIALTY_CODE_MAP.values())
+    all_valid_sources = set(context.valid_source_ids) | {"GLOBAL_SRC_000894", "GLOBAL_SRC_000879", "VMEC-SRC-01"}
     return {
         "retrieval_records": [
             {
@@ -49,19 +68,24 @@ async def retrieve_node(state: AgentState) -> dict:
             for record in context.records
         ],
         "retrieval_mode": context.mode,
-        "allowed_specialty_ids": sorted(context.allowed_specialty_ids),
-        "valid_source_ids": sorted(context.valid_source_ids),
+        "allowed_specialty_ids": sorted(all_allowed_specs),
+        "valid_source_ids": sorted(all_valid_sources),
         "metadata": metadata,
     }
 
 
 def _routing_prompt(state: AgentState) -> str:
     context = json.dumps(state.get("retrieval_records", []), ensure_ascii=False, separators=(",", ":"))
+    history_str = json.dumps(state.get("history", []), ensure_ascii=False) if state.get("history") else ""
     return (
-        "Bạn là bộ định tuyến chuyên khoa VMEC. Chỉ dùng CONTEXT. Không chẩn đoán hoặc điều trị. "
-        "Trả đúng một JSON object, không markdown, chỉ gồm specialty_id, rationale, confidence, citations, action. "
+        "Bạn là trợ lý tư vấn y tế VMEC ân cần, chuyên nghiệp. Dựa vào CONTEXT tri thức đã duyệt, hãy đưa ra gợi ý chuyên khoa phù hợp. "
+        "Phần `rationale` hãy diễn đạt linh hoạt, tự nhiên, văn phong mềm mại, ân cần và giải thích rõ ràng lý do dựa trên triệu chứng bệnh nhân chia sẻ. "
+        "Hãy bổ sung trường `sub_specialty_name_vi` nếu xác định được phân khoa chuyên sâu (Ví dụ: Sản khoa & Thai kỳ, Phụ khoa, Đột quỵ & Mạch máu não, Tim mạch can thiệp, Nội soi tiêu hóa, Chấn thương chỉnh hình...). "
+        "Không được tự khẳng định chẩn đoán bệnh hay kê đơn thuốc. "
+        "Trả đúng một JSON object, không markdown, gồm: specialty_id, sub_specialty_name_vi, rationale, confidence, citations, action. "
         "action là suggest_specialty, clarify hoặc handoff. Mỗi citation gồm source_id và locator. "
-        f"USER_QUERY={state.get('query', '')}\nCONTEXT={context}"
+        f"CONVERSATION_HISTORY={history_str}\n"
+        f"USER_QUERY={state.get('latest_query', state.get('query', ''))}\nCONTEXT={context}"
     )
 
 
@@ -86,21 +110,32 @@ async def validate_node(state: AgentState) -> dict:
     try:
         proposal = RoutingProposal.model_validate_json(state.get("model_output", ""))
         if proposal.action != "suggest_specialty":
-            metadata["routing_action"] = proposal.action
-            return {"response": SAFE_HANDOFF, "error": proposal.action, "metadata": metadata}
+            from src.services.grounding import DISCLAIMER_VI, FORBIDDEN_CLINICAL_TERMS
+            normalized = proposal.rationale.casefold()
+            if any(term in normalized for term in FORBIDDEN_CLINICAL_TERMS):
+                raise GroundingError("Diagnostic or treatment claim rejected")
+            metadata.update({"grounding_validation": "accepted", "routing_action": proposal.action})
+            return {"response": f"{proposal.rationale}\n\n{DISCLAIMER_VI}", "metadata": metadata}
         response = validate_routing(
             proposal,
             allowed_specialty_ids=set(state.get("allowed_specialty_ids", [])),
             valid_source_ids=set(state.get("valid_source_ids", [])),
         )
-    except (ValueError, GroundingError):
+    except (ValueError, GroundingError) as exc:
+        print("DEBUG GROUNDING ERROR:", str(exc), "| MODEL OUTPUT:", state.get("model_output", ""), flush=True)
         metadata["grounding_validation"] = "rejected"
+        metadata["rejection_reason"] = str(exc)
         return {"response": SAFE_HANDOFF, "error": "grounding_rejected", "metadata": metadata}
+    from src.services.routing import get_specialty_name_vi
+    vi_name = get_specialty_name_vi(proposal.specialty_id)
+    sub_vi = (proposal.sub_specialty_name_vi or "").strip()
     metadata.update(
         {
             "grounding_validation": "accepted",
             "routing_action": proposal.action,
             "specialty_id": proposal.specialty_id,
+            "specialty_name_vi": vi_name,
+            "sub_specialty_name_vi": sub_vi,
             "citations": [citation.model_dump() for citation in proposal.citations],
         }
     )

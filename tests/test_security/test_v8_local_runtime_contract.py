@@ -1,6 +1,10 @@
 from pathlib import Path
 from subprocess import run
 
+import pytest
+
+from scripts.provision_local_postgres_roles import _password
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -16,3 +20,11 @@ def test_v8_secret_store_is_ignored_and_no_secret_template_is_tracked() -> None:
     ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert ".secrets/" in ignored
     assert run(["git", "check-ignore", "-q", ".secrets/v8/runtime.env"], cwd=ROOT, check=False).returncode == 0
+
+
+def test_v8_dedicated_role_urls_use_a_real_url_parser() -> None:
+    assert _password(
+        "postgresql+psycopg://vmec_v8_api:encoded%3Afixture@postgres:5432/vmec", "vmec_v8_api"
+    ) == "encoded:fixture"
+    with pytest.raises(RuntimeError, match="expected local login"):
+        _password("postgresql://unexpected:fixture@postgres/vmec", "vmec_v8_api")

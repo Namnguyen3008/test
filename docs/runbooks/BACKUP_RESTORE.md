@@ -70,14 +70,18 @@ the archive digest, and restores into an explicitly named clean database.
 ```powershell
 python -m scripts.local_encrypted_backup backup `
   --backup-directory .secrets/v8/backups `
-  --recipient .secrets/v8/backup.recipient.txt
+  --recipient .secrets/v8/backup.recipient.txt `
+  --backup-database-user vmec_v8_backup
 
 python -m scripts.local_encrypted_backup restore `
   --archive ".secrets/v8/backups/<archive>.dump.age" `
   --identity .secrets/v8/backup.agekey `
+  --restore-database-user vmec `
   --restore-database vmec_restore_v8
 ```
 
+The restore helper verifies the archive SHA-256 sidecar before decryption. `vmec_v8_backup` is a read-only dedicated
+login; the separately supplied restore login is used only to create and populate the disposable restore database.
 This is prepared, not executed: encryption setup or an archive alone is not restore-drill evidence.
 
 ## Compose drill sequence

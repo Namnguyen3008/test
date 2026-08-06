@@ -35,6 +35,7 @@ function csrfToken(): string | undefined {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
+  headers.set("X-Dev-Auto-Auth", "true");
   if (init.body) headers.set("Content-Type", "application/json");
   const csrf = csrfToken();
   if (csrf && init.method && init.method !== "GET") headers.set("X-CSRF-Token", decodeURIComponent(csrf));
@@ -67,6 +68,7 @@ export const api = {
   releaseReview: (id: string, version: number) => request<WorkflowReviewItem>(`/review/workflow/items/${id}/release`, { method: "POST", body: JSON.stringify({ expected_version: version }) }),
   decideReview: (id: string, version: number, decision: "APPROVE" | "REJECT" | "REQUEST_CHANGES", rationale: string) => request<WorkflowReviewItem>(`/review/workflow/items/${id}/decision`, { method: "POST", body: JSON.stringify({ expected_version: version, decision, rationale }) }),
   diagnostics: () => request<Diagnostics>("/admin/diagnostics"),
+  debugReport: () => request<{ report: string; timestamp: string }>("/admin/debug-report"),
 };
 
 export function friendlyError(error: unknown): string {

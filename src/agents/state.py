@@ -11,6 +11,8 @@ class AgentState(TypedDict, total=False):
     """
 
     query: str
+    latest_query: str
+    history: list[dict[str, str]]
     context: str
     response: str
     emergency: bool

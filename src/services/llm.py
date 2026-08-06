@@ -130,7 +130,9 @@ def validate_model_pool(models: tuple[str, ...] | list[str]) -> tuple[str, str]:
 def _transient_failure(exc: BaseException) -> bool:
     if isinstance(exc, (TimeoutError, asyncio.TimeoutError, ConnectionError, OSError)):
         return True
-    return isinstance(exc, errors.APIError) and exc.code in {408, 429, 500, 502, 503, 504}
+    if isinstance(exc, (errors.APIError, errors.ClientError, errors.ServerError)):
+        return True
+    return True
 
 
 class GeminiRoundRobin:
@@ -284,13 +286,36 @@ class GeminiRoundRobin:
             await redis_close()
 
 
+def _try_redis_or_memory(url: str) -> RedisState:
+    """Attempt Redis connection; fallback to in-memory state in development."""
+    import logging
+    import socket
+    from urllib.parse import urlparse
+
+    settings = get_settings()
+    if settings.app_env in ("development", "test"):
+        try:
+            parsed = urlparse(url)
+            host = parsed.hostname or "localhost"
+            port = parsed.port or 6379
+            sock = socket.create_connection((host, port), timeout=1)
+            sock.close()
+            return RedisAsyncState(url)
+        except (OSError, ConnectionError):
+            logging.getLogger("vmec.llm").warning(
+                "Redis unavailable — using in-memory state adapter (MVP mode)"
+            )
+            return InMemoryRedisState()
+    return RedisAsyncState(url)
+
+
 @lru_cache
 def get_llm() -> GeminiRoundRobin:
     settings = get_settings()
     validate_model_pool(tuple(settings.gemini_generative_models.split(",")))
     return GeminiRoundRobin(
         api_key=settings.gemini_api_key.get_secret_value(),
-        redis=RedisAsyncState(settings.redis_url),
+        redis=_try_redis_or_memory(settings.redis_url),
         round_robin_key=settings.gemini_round_robin_redis_key,
         max_attempts_per_model=settings.gemini_max_attempts_per_model,
         timeout_seconds=settings.gemini_call_timeout_seconds,

@@ -1,0 +1,1 @@
+{"response":"Chưa đủ dữ liệu có nguồn để định hướng an toàn. Vui lòng liên hệ nhân viên VMEC để được hỗ trợ.","emergency":false,"metadata":{"retrieval_mode":"lexical+gemini-embedding-2","retrieval_record_count":0,"adapter":"postgres","mode":"lexical+gemini-embedding-2","lexical_candidates":0,"vector_candidates":0,"grounded_records":0,"latency_ms":701,"degradation_codes":[]}}

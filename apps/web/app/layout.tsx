@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "VMEC — Định hướng chuyên kh
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="vi"><body>
     <header className="topbar"><Link className="brand" href="/" aria-label="VMEC trang chủ"><span className="brandMark">V</span><span>VMEC</span></Link>
-      <nav aria-label="Điều hướng chính"><Link href="/">Tư vấn</Link><Link href="/appointments">Lịch hẹn</Link><Link href="/operations">Vận hành</Link></nav><SessionBar />
+      <nav aria-label="Điều hướng chính"><Link href="/">Tư vấn</Link><Link href="/appointments">Lịch hẹn (Patient)</Link><Link href="/operations">Vận hành (Staff)</Link><Link href="/review">Duyệt lâm sàng (Reviewer)</Link><Link href="/admin">Quản trị (Admin)</Link></nav><SessionBar />
     </header>
     <div className="dataWarning" role="status">Môi trường phát triển — dữ liệu chưa được phê duyệt lâm sàng.</div>{children}
   </body></html>;

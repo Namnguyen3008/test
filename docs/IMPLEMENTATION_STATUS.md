@@ -124,6 +124,44 @@ DATA_APPROVED=false
 PRODUCTION_READY=false
 ```
 
+## V8 continuation hardening — 2026-08-03 Asia/Saigon
+
+Commit pending after this append hardens the local rehearsal boundary without claiming a live runtime result.
+Dedicated-role provisioning now parses PostgreSQL URLs with SQLAlchemy's URL parser so encoded credential characters
+are handled correctly and credentials are never reconstructed or logged. The encrypted backup helper now makes
+custom dumps portable with `--no-owner --no-acl`, uses the read-only `vmec_v8_backup` login for dumps, requires a
+separate restore login for the disposable target, and rejects a missing, malformed, or mismatched SHA-256 archive
+sidecar before any decryption.
+
+The complete offline Python suite now records `187 passed, 16 skipped`; the 16 skips still require the persistent
+runtime and are not passes. Compose config, Helm lint, and Helm template rendering have passed offline. Docker Engine,
+kind, PostgreSQL/Redis, migrations, imports, dedicated-login checks, real restore, real-stack E2E, staging and
+production gates remain not run until the sole UAC action in `docs/blockers/V8_WSL_ADMIN_ACTION.md` is completed.
+
+```text
+TOOLCHAIN_READY=false
+DOCKER_COMPOSE_VERIFIED=false
+KUBERNETES_HELM_VERIFIED=false
+CODE_COMPLETE=true
+INFRA_VERIFIED=false
+PERSISTENT_IMPORT_COMPLETE=false
+GOVERNANCE_MANIFEST_VERIFIED=false
+DATA_PROMOTION_COMPLETE=false
+SUPERSESSION_REVOCATION_COMPLETE=false
+DATABASE_LEAST_PRIVILEGE_VERIFIED=false
+EMBEDDING_AUTHORIZATION_VERIFIED=false
+EMBEDDING_SMOKE_COMPLETE=false
+EMBEDDING_BACKFILL_COMPLETE=false
+REAL_STACK_E2E_COMPLETE=false
+SECURITY_LOAD_RESILIENCE_COMPLETE=false
+BACKUP_RESTORE_VERIFIED=false
+DATA_APPROVED=false
+STAGING_VERIFIED=false
+PRODUCTION_CUTOVER_COMPLETE=false
+OPERATIONS_HANDOVER_COMPLETE=false
+PRODUCTION_READY=false
+```
+
 ## V8 external-stack bootstrap — 2026-08-03 Asia/Saigon
 
 V8 archive extraction is guarded and the original SHA-256 is unchanged. All payload and V7 baseline hashes matched.
@@ -382,3 +420,16 @@ PRODUCTION_CUTOVER_COMPLETE=false
 OPERATIONS_HANDOVER_COMPLETE=false
 PRODUCTION_READY=false
 ```
+
+## V8 continuation hardening â€” 2026-08-03 Asia/Saigon
+
+Dedicated-role provisioning now parses PostgreSQL URLs with SQLAlchemy's URL parser so encoded credential characters
+are handled correctly and credentials are never reconstructed or logged. The encrypted backup helper now makes
+custom dumps portable with `--no-owner --no-acl`, uses the read-only `vmec_v8_backup` login for dumps, requires a
+separate restore login for the disposable target, and rejects a missing, malformed, or mismatched SHA-256 archive
+sidecar before any decryption.
+
+The complete offline Python suite now records `187 passed, 16 skipped`; the 16 skips still require the persistent
+runtime and are not passes. Compose config, Helm lint, and Helm template rendering have passed offline. Docker Engine,
+kind, PostgreSQL/Redis, migrations, imports, dedicated-login checks, real restore, real-stack E2E, staging and
+production gates remain not run until the sole UAC action in `docs/blockers/V8_WSL_ADMIN_ACTION.md` is completed.

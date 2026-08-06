@@ -1,4 +1,4 @@
-"""VMEC AI Agent Standalone Microservice (Clean Production Web UI)."""
+"""VMEC AI Agent Standalone Microservice (Interactive Clarification, Actionable UI Widgets & CockroachDB RAG)."""
 
 import os
 import sys
@@ -14,7 +14,7 @@ import psycopg
 from google import genai
 from google.genai import types
 
-app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version="2.0.0")
+app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version="2.5.0")
 
 # --- Schemas ---
 class ChatMessage(BaseModel):
@@ -79,13 +79,13 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> str:
         results.append("[GLOBAL_MED_001]: Hướng dẫn phân loại chẩn đoán y khoa tổng quát VMEC.")
     return "\n".join(results)
 
-# --- Clean Glassmorphic Web UI HTML ---
+# --- Clean Glassmorphic Web UI HTML with Interactive Widgets ---
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VMEC AI Agent Chatbot - Trợ Lý Y Khoa</title>
+    <title>VMEC AI Agent Chatbot - Trợ Lý Y Khoa Thông Minh</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -104,15 +104,28 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .header h1 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
         .badge { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
         .chat-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
-        .msg { max-width: 80%; padding: 14px 18px; border-radius: 18px; line-height: 1.6; font-size: 0.95rem; white-space: pre-wrap; }
+        .msg { max-width: 85%; padding: 14px 18px; border-radius: 18px; line-height: 1.6; font-size: 0.95rem; white-space: pre-wrap; }
         .msg.user { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }
         .msg.agent { align-self: flex-start; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-        .meta-tag { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .meta-tag { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         .meta-pill { background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; }
+        
+        /* Interactive Widgets Styling */
+        .widget-section { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px; }
+        .widget-title { font-size: 0.85rem; color: #94a3b8; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+        .options-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .option-btn { background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #7dd3fc; padding: 6px 14px; border-radius: 16px; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; font-weight: 500; }
+        .option-btn:hover { background: rgba(56, 189, 248, 0.3); transform: translateY(-1px); }
+        .booking-card { background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2)); border: 1px solid rgba(168, 85, 247, 0.4); padding: 12px 16px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+        .booking-btn { background: #8b5cf6; color: white; border: none; padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .booking-btn:hover { background: #7c3aed; }
+        .checklist-box { background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.08); padding: 10px 14px; border-radius: 12px; font-size: 0.82rem; color: #cbd5e1; }
+        .checklist-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        
         .footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 12px; background: rgba(15, 23, 42, 0.4); }
         input { flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 14px 20px; border-radius: 14px; color: white; outline: none; }
-        button { background: var(--primary); color: white; border: none; padding: 14px 28px; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
-        button:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        button.send-btn { background: var(--primary); color: white; border: none; padding: 14px 28px; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        button.send-btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
     </style>
 </head>
 <body>
@@ -126,22 +139,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
         <div class="footer">
             <input type="text" id="userInput" placeholder="Nhập triệu chứng của bạn vào đây..." onkeypress="if(event.key==='Enter') send();">
-            <button onclick="send()">Gửi AI</button>
+            <button class="send-btn" onclick="send()">Gửi AI</button>
         </div>
     </div>
     <script>
         const history = [];
-        async function send() {
+        async function send(customText) {
             const input = document.getElementById('userInput');
-            const txt = input.value.trim();
+            const txt = customText || input.value.trim();
             if (!txt) return;
             
             appendMsg('user', txt);
-            input.value = '';
+            if (!customText) input.value = '';
             
             const typing = document.createElement('div');
             typing.className = 'msg agent';
-            typing.innerText = '🤖 AI đang phân tích triệu chứng...';
+            typing.innerText = '🤖 AI đang phân tích triệu chứng & tìm kiếm tri thức...';
             document.getElementById('chat').appendChild(typing);
             
             try {
@@ -159,7 +172,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     const subSpec = data.metadata.sub_specialty_name_vi || '';
                     let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;border-color:rgba(168,85,247,0.4);">🔍 Phân khoa: <strong>${subSpec}</strong></span>` : '';
                     metaHTML = `<div class="meta-tag"><span class="meta-pill">🏥 ${viSpec}</span>${subPill}</div>`;
+                    
+                    // Render Interactive Quick Options Widget
+                    if (data.metadata.quick_options && data.metadata.quick_options.length > 0) {
+                        let optsHTML = data.metadata.quick_options.map(opt => `<button class="option-btn" onclick="send('${opt.replace(/'/g, "\\'")}')">🔘 ${opt}</button>`).join('');
+                        metaHTML += `<div class="widget-section"><div class="widget-title">💡 Chọn nhanh để giúp AI làm rõ hơn:</div><div class="options-container">${optsHTML}</div></div>`;
+                    }
+                    
+                    // Render Pre-Clinical Checklist Widget
+                    if (data.metadata.checklist && data.metadata.checklist.length > 0) {
+                        let listHTML = data.metadata.checklist.map(item => `<div class="checklist-item">📌 ${item}</div>`).join('');
+                        metaHTML += `<div class="widget-section"><div class="widget-title">📋 Lưu ý chuẩn bị trước khi thăm khám:</div><div class="checklist-box">${listHTML}</div></div>`;
+                    }
+
+                    // Render Quick Booking Widget
+                    metaHTML += `<div class="booking-card"><div><strong style="color:#e0e7ff;font-size:0.88rem;">Đặt lịch hẹn thăm khám</strong><br><span style="color:#a5b4fc;font-size:0.78rem;">${viSpec}</span></div><button class="booking-btn" onclick="alert('Đã mở trang Đặt lịch hẹn thăm khám tại ${viSpec}!')">📅 Đặt lịch ngay</button></div>`;
                 }
+                
                 appendMsg('agent', data.response + metaHTML);
                 history.push({ role: 'user', content: txt });
                 history.push({ role: 'assistant', content: data.response });
@@ -209,7 +238,10 @@ async def chat(request: ChatRequest):
             '  "specialty_id": "SP_NEUROLOGY",\n'
             '  "specialty_name_vi": "Chuyên khoa Nội thần kinh",\n'
             '  "sub_specialty_name_vi": "Thần kinh",\n'
-            '  "rationale": "Lời tư vấn ân cần cho bệnh nhân dựa trên tri thức chẩn đoán...",\n'
+            '  "rationale": "Lời tư vấn ân cần cho bệnh nhân...",\n'
+            '  "clarification_needed": false,\n'
+            '  "quick_options": ["Đau kèm buồn nôn", "Đau dữ dội vùng thái dương", "Có sốt kèm theo"],\n'
+            '  "checklist": ["Nghỉ ngơi nơi yên tĩnh", "Ghi lại thời điểm xuất hiện cơn đau"],\n'
             '  "action": "suggest_specialty"\n'
             "}\n\n"
             f"Bệnh nhân hỏi: {request.message}"
@@ -229,6 +261,8 @@ async def chat(request: ChatRequest):
         vi_name = data.get("specialty_name_vi") or SPECIALTY_NAME_MAP.get(spec_id, "Chuyên khoa Nội tổng quát")
         sub_name = data.get("sub_specialty_name_vi", "")
         rationale = data.get("rationale", "Bạn nên thăm khám trực tiếp để được bác sĩ tư vấn kỹ hơn.")
+        quick_opts = data.get("quick_options", [])
+        checklist = data.get("checklist", [])
         
         return ChatResponse(
             response=rationale,
@@ -236,13 +270,15 @@ async def chat(request: ChatRequest):
             metadata={
                 "specialty_id": spec_id,
                 "specialty_name_vi": vi_name,
-                "sub_specialty_name_vi": sub_name
+                "sub_specialty_name_vi": sub_name,
+                "quick_options": quick_opts,
+                "checklist": checklist
             }
         )
     except Exception as e:
         return ChatResponse(
             response="Chào bạn, rất chia sẻ với tình trạng sức khỏe bạn đang gặp phải. Bạn nên thu xếp thăm khám trực tiếp tại cơ sở y tế gần nhất để bác sĩ chẩn đoán chính xác nhé.",
-            metadata={"specialty_name_vi": "Chuyên khoa Nội tổng quát"}
+            metadata={"specialty_name_vi": "Chuyên khoa Nội tổng quát", "quick_options": [], "checklist": []}
         )
 
 if __name__ == "__main__":

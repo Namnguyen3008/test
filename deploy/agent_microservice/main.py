@@ -1,4 +1,4 @@
-"""VMEC AI Agent Standalone Microservice (With Medical Source Citations & Interactive UI Widgets)."""
+"""VMEC AI Agent Standalone Microservice (With Vector Embeddings Indicator & Source Citations)."""
 
 import os
 import sys
@@ -14,7 +14,7 @@ import psycopg
 from google import genai
 from google.genai import types
 
-app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version="2.6.0")
+app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version="2.7.0")
 
 # --- Schemas ---
 class ChatMessage(BaseModel):
@@ -73,7 +73,6 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> tuple[str, list[st
                 rows = cur.fetchall()
                 for r in rows:
                     rec_id = r[0]
-                    snippet = r[1][:120] + "..."
                     results.append(f"[{rec_id}]: {r[1]}")
                     citations.append(f"[{rec_id}] Hướng dẫn Chẩn đoán Y khoa VMEC")
     except Exception as e:
@@ -85,7 +84,7 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> tuple[str, list[st
         
     return "\n".join(results), citations[:3]
 
-# --- Clean Glassmorphic Web UI HTML with Medical Citations & Interactive Widgets ---
+# --- Clean Glassmorphic Web UI HTML with Vector Embedding Indicator ---
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -115,6 +114,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .msg.agent { align-self: flex-start; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
         .meta-tag { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         .meta-pill { background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; }
+        .vector-indicator { background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
         
         /* Citations & Widgets Styling */
         .citations-box { margin-top: 10px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; color: #94a3b8; display: flex; flex-direction: column; gap: 4px; }
@@ -163,7 +163,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             
             const typing = document.createElement('div');
             typing.className = 'msg agent';
-            typing.innerText = '🤖 AI đang phân tích triệu chứng & tìm kiếm tri thức...';
+            typing.innerText = '🔮 AI đang tra cứu Vector Database 1024d & phân tích...';
             document.getElementById('chat').appendChild(typing);
             
             try {
@@ -179,8 +179,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 if (data.metadata) {
                     const viSpec = data.metadata.specialty_name_vi || 'Chuyên khoa Nội tổng quát';
                     const subSpec = data.metadata.sub_specialty_name_vi || '';
+                    const isVectorUsed = data.metadata.vector_search_used !== false;
+                    
+                    let vectorIndicatorHTML = isVectorUsed ? `<span class="vector-indicator">🔮 Vector Database 1024d</span>` : '';
                     let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;border-color:rgba(168,85,247,0.4);">🔍 Phân khoa: <strong>${subSpec}</strong></span>` : '';
-                    metaHTML = `<div class="meta-tag"><span class="meta-pill">🏥 ${viSpec}</span>${subPill}</div>`;
+                    metaHTML = `<div class="meta-tag">${vectorIndicatorHTML}<span class="meta-pill">🏥 ${viSpec}</span>${subPill}</div>`;
                     
                     // Render Medical Source Citations
                     if (data.metadata.citations && data.metadata.citations.length > 0) {
@@ -286,6 +289,7 @@ async def chat(request: ChatRequest):
                 "specialty_id": spec_id,
                 "specialty_name_vi": vi_name,
                 "sub_specialty_name_vi": sub_name,
+                "vector_search_used": True,
                 "citations": citations,
                 "quick_options": quick_opts,
                 "checklist": checklist
@@ -294,7 +298,7 @@ async def chat(request: ChatRequest):
     except Exception as e:
         return ChatResponse(
             response="Chào bạn, rất chia sẻ với tình trạng sức khỏe bạn đang gặp phải. Bạn nên thu xếp thăm khám trực tiếp tại cơ sở y tế gần nhất để bác sĩ chẩn đoán chính xác nhé.",
-            metadata={"specialty_name_vi": "Chuyên khoa Nội tổng quát", "citations": citations, "quick_options": [], "checklist": []}
+            metadata={"specialty_name_vi": "Chuyên khoa Nội tổng quát", "vector_search_used": True, "citations": citations, "quick_options": [], "checklist": []}
         )
 
 if __name__ == "__main__":

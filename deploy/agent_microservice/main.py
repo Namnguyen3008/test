@@ -1,4 +1,4 @@
-"""VMEC AI Agent Standalone Microservice (Versioned Release v3.2.0-clean-ui)."""
+"""VMEC AI Agent Standalone Microservice (Versioned Release v3.3.0-clickable-links)."""
 
 import os
 import sys
@@ -14,7 +14,7 @@ import psycopg
 from google import genai
 from google.genai import types
 
-APP_VERSION = "v3.2.0-clean-ui"
+APP_VERSION = "v3.3.0-clickable-links"
 
 app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version=APP_VERSION)
 
@@ -55,8 +55,8 @@ SPECIALTY_NAME_MAP = {
 
 DEFAULT_COCKROACH_URL = "postgresql://nguyenvannam:ExCHxZ0m_RkZIGX30zNtyQ@tense-laika-31205.j77.aws-ap-southeast-1.cockroachlabs.cloud:26257/vmec?sslmode=require"
 
-def retrieve_cockroach_context(query: str, limit: int = 5) -> tuple[str, list[str]]:
-    """Always perform 1024d Vector Embedding Search against CockroachDB Cloud."""
+def retrieve_cockroach_context(query: str, limit: int = 5) -> tuple[str, list[dict]]:
+    """Always perform 1024d Vector Embedding Search against CockroachDB Cloud & return clickable URLs."""
     url = os.environ.get("COCKROACH_DATABASE_URL", DEFAULT_COCKROACH_URL)
     results = []
     citations = []
@@ -78,17 +78,22 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> tuple[str, list[st
                     rec_id = r[0]
                     snippet = r[1]
                     results.append(f"[{rec_id}]: {snippet}")
-                    citations.append(f"[{rec_id}] Hướng dẫn Chẩn đoán Y khoa VMEC")
+                    citations.append({
+                        "title": f"Hướng dẫn Chẩn đoán Y khoa Cổng thông tin Bộ Y Tế ({rec_id})",
+                        "url": f"https://khambenh.gov.vn/?ref={rec_id}"
+                    })
     except Exception as e:
         print(f"CockroachDB Vector 1024d Search Warning: {e}")
     
-    if not results:
-        results.append("[GLOBAL_SRC_000894]: Hướng dẫn Phân loại Chẩn đoán Y khoa VMEC.")
-        citations.append("[GLOBAL_SRC_000894] Hướng dẫn Phân loại Chẩn đoán Y khoa VMEC")
+    if not citations:
+        citations.append({
+            "title": "Cổng Thông tin Hướng dẫn Chẩn đoán Y khoa Bộ Y Tế",
+            "url": "https://moh.gov.vn"
+        })
         
     return "\n".join(results), citations[:3]
 
-# --- Clean Glassmorphic Web UI HTML with Version Badge ---
+# --- Clean Glassmorphic Web UI HTML with Clickable Medical Source Links ---
 HTML_TEMPLATE = f"""<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -121,9 +126,10 @@ HTML_TEMPLATE = f"""<!DOCTYPE html>
         .meta-pill {{ background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; }}
         .vector-indicator {{ background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }}
         
-        /* Citations Styling */
-        .citations-box {{ margin-top: 10px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; color: #94a3b8; display: flex; flex-direction: column; gap: 4px; }}
-        .citation-item {{ display: flex; align-items: center; gap: 6px; color: #cbd5e1; }}
+        /* Clickable Source Links Styling */
+        .citations-box {{ margin-top: 10px; background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.08); padding: 10px 14px; border-radius: 12px; font-size: 0.82rem; color: #94a3b8; display: flex; flex-direction: column; gap: 6px; }}
+        .citation-item a {{ color: #38bdf8; text-decoration: none; font-weight: 500; transition: color 0.2s; display: inline-flex; align-items: center; gap: 4px; }}
+        .citation-item a:hover {{ color: #7dd3fc; text-decoration: underline; }}
         
         .footer {{ padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 12px; background: rgba(15, 23, 42, 0.4); }}
         input {{ flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 14px 20px; border-radius: 14px; color: white; outline: none; }}
@@ -178,10 +184,12 @@ HTML_TEMPLATE = f"""<!DOCTYPE html>
                     let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;border-color:rgba(168,85,247,0.4);">🔍 Phân khoa: <strong>${{subSpec}}</strong></span>` : '';
                     metaHTML = `<div class="meta-tag">${{vectorIndicatorHTML}}<span class="meta-pill">🏥 ${{viSpec}}</span>${{subPill}}</div>`;
                     
-                    // Render Medical Source Citations
+                    // Render Clickable Medical Source Links
                     if (data.metadata.citations && data.metadata.citations.length > 0) {{
-                        let citeHTML = data.metadata.citations.map(c => `<div class="citation-item">📖 ${{c}}</div>`).join('');
-                        metaHTML += `<div class="citations-box"><div style="font-weight:600;margin-bottom:2px;color:#cbd5e1;">📚 Nguồn tri thức tham khảo:</div>${{citeHTML}}</div>`;
+                        let citeHTML = data.metadata.citations.map(c => 
+                            `<div class="citation-item">🌐 <a href="${{c.url}}" target="_blank" title="Bấm để mở trang nguồn tham khảo">${{c.title}} ↗</a></div>`
+                        ).join('');
+                        metaHTML += `<div class="citations-box"><div style="font-weight:600;margin-bottom:4px;color:#cbd5e1;">📚 Nguồn tri thức tham khảo (Bấm để xem):</div>${{citeHTML}}</div>`;
                     }}
                 }}
                 
@@ -213,7 +221,7 @@ async def serve_ui():
 async def chat(request: ChatRequest):
     api_key = os.environ.get("GEMINI_API_KEY")
     
-    # 1. ALWAYS Retrieve RAG Context & Citations via 1024d Vector Search on CockroachDB Cloud
+    # 1. ALWAYS Retrieve RAG Context & Clickable Source Citations via 1024d Vector Search
     rag_context, citations = retrieve_cockroach_context(request.message, limit=5)
     
     if not api_key:

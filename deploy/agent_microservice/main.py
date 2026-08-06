@@ -1,4 +1,4 @@
-"""VMEC AI Agent Standalone Microservice (Clean Patient-Facing UI)."""
+"""VMEC AI Agent Standalone Microservice (Clean Production Web UI)."""
 
 import os
 import sys
@@ -85,7 +85,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VMEC AI Agent Chatbot - Tư vấn Y khoa</title>
+    <title>VMEC AI Agent Chatbot - Trợ Lý Y Khoa</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -102,13 +102,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .chat-app { width: 100%; max-width: 900px; height: 90vh; background: var(--panel); backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
         .header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.4); }
         .header h1 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
-        .badge { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
+        .badge { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
         .chat-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
         .msg { max-width: 80%; padding: 14px 18px; border-radius: 18px; line-height: 1.6; font-size: 0.95rem; white-space: pre-wrap; }
         .msg.user { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }
         .msg.agent { align-self: flex-start; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
         .meta-tag { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-        .meta-pill { background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; }
+        .meta-pill { background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; }
         .footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 12px; background: rgba(15, 23, 42, 0.4); }
         input { flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 14px 20px; border-radius: 14px; color: white; outline: none; }
         button { background: var(--primary); color: white; border: none; padding: 14px 28px; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
@@ -155,17 +155,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 
                 let metaHTML = '';
                 if (data.metadata) {
-                    const viSpec = data.metadata.specialty_name_vi || '🏥 Chuyên khoa Nội tổng quát';
+                    const viSpec = data.metadata.specialty_name_vi || 'Chuyên khoa Nội tổng quát';
                     const subSpec = data.metadata.sub_specialty_name_vi || '';
-                    let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;">🔍 Phân khoa: <strong>${subSpec}</strong></span>` : '';
-                    metaHTML = `<div class="meta-tag"><span class="meta-pill">${viSpec}</span>${subPill}</div>`;
+                    let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;border-color:rgba(168,85,247,0.4);">🔍 Phân khoa: <strong>${subSpec}</strong></span>` : '';
+                    metaHTML = `<div class="meta-tag"><span class="meta-pill">🏥 ${viSpec}</span>${subPill}</div>`;
                 }
                 appendMsg('agent', data.response + metaHTML);
                 history.push({ role: 'user', content: txt });
                 history.push({ role: 'assistant', content: data.response });
             } catch (e) {
                 typing.remove();
-                appendMsg('agent', '❌ Lỗi kết nối API Server!');
+                appendMsg('agent', '❌ Lỗi kết nối máy chủ tư vấn!');
             }
         }
         function appendMsg(role, html) {
@@ -188,19 +188,19 @@ async def serve_ui():
 async def chat(request: ChatRequest):
     api_key = os.environ.get("GEMINI_API_KEY")
     
-    # 1. Retrieve RAG Context directly from CockroachDB Cloud Database (Backend RAG execution)
+    # 1. Retrieve RAG Context directly from CockroachDB Cloud Database
     rag_context = retrieve_cockroach_context(request.message, limit=5)
     
     if not api_key:
         return ChatResponse(
-            response="Hệ thống AI đang kết nối. Vui lòng khai báo GEMINI_API_KEY trên biến môi trường Render.",
+            response="Hệ thống AI đang kết nối. Vui lòng khai báo GEMINI_API_KEY trên biến môi trường.",
             metadata={"status": "unconfigured"}
         )
     
     try:
         client = genai.Client(api_key=api_key)
         prompt = (
-            "Bạn là trợ lý tư vấn y tế VMEC ân cần, chuyên nghiệp. Dựa vào Tri thức Y khoa tra cứu trực tiếp từ Cơ sở dữ liệu chuẩn bên dưới, hãy đưa ra tư vấn và định hướng chuyên khoa phù hợp cho bệnh nhân.\n\n"
+            "Bạn là trợ lý tư vấn y tế VMEC ân cần, chuyên nghiệp. Dựa vào Tri thức Y khoa tra cứu trực tiếp dưới đây, hãy đưa ra tư vấn và định hướng chuyên khoa phù hợp cho bệnh nhân.\n\n"
             "--- TRI THỨC Y KHOA TRA CỨU ---\n"
             f"{rag_context}\n"
             "--------------------------------\n\n"
@@ -242,7 +242,7 @@ async def chat(request: ChatRequest):
     except Exception as e:
         return ChatResponse(
             response="Chào bạn, rất chia sẻ với tình trạng sức khỏe bạn đang gặp phải. Bạn nên thu xếp thăm khám trực tiếp tại cơ sở y tế gần nhất để bác sĩ chẩn đoán chính xác nhé.",
-            metadata={"error": str(e), "specialty_name_vi": "Chuyên khoa Nội tổng quát"}
+            metadata={"specialty_name_vi": "Chuyên khoa Nội tổng quát"}
         )
 
 if __name__ == "__main__":

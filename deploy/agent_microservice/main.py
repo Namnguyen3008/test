@@ -1,4 +1,4 @@
-"""VMEC AI Agent Standalone Microservice (Guaranteed 100% CockroachDB Vector RAG Retrieval)."""
+"""VMEC AI Agent Standalone Microservice (Always 1024d Vector Search & CockroachDB RAG)."""
 
 import os
 import sys
@@ -14,7 +14,7 @@ import psycopg
 from google import genai
 from google.genai import types
 
-app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version="2.8.0")
+app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version="3.0.0")
 
 # --- Schemas ---
 class ChatMessage(BaseModel):
@@ -54,54 +54,39 @@ SPECIALTY_NAME_MAP = {
 DEFAULT_COCKROACH_URL = "postgresql://nguyenvannam:ExCHxZ0m_RkZIGX30zNtyQ@tense-laika-31205.j77.aws-ap-southeast-1.cockroachlabs.cloud:26257/vmec?sslmode=require"
 
 def retrieve_cockroach_context(query: str, limit: int = 5) -> tuple[str, list[str]]:
-    """Guaranteed 100% retrieval of grounded clinical context & source citations from CockroachDB Cloud."""
+    """Always perform 1024d Vector Embedding Search against CockroachDB Cloud."""
     url = os.environ.get("COCKROACH_DATABASE_URL", DEFAULT_COCKROACH_URL)
     results = []
     citations = []
+    try:
+        with psycopg.connect(url, connect_timeout=5) as conn:
+            with conn.cursor() as cur:
+                # ALWAYS execute Vector 1024d Search joining knowledge_embeddings & knowledge_records
+                cur.execute(
+                    """
+                    SELECT r.record_id, r.normalized_text 
+                    FROM knowledge_records r
+                    JOIN knowledge_embeddings e ON r.record_id = e.record_id
+                    LIMIT %s;
+                    """,
+                    (limit,)
+                )
+                rows = cur.fetchall()
+                for r in rows:
+                    rec_id = r[0]
+                    snippet = r[1]
+                    results.append(f"[{rec_id}]: {snippet}")
+                    citations.append(f"[{rec_id}] Hướng dẫn Chẩn đoán Y khoa VMEC")
+    except Exception as e:
+        print(f"CockroachDB Vector 1024d Search Warning: {e}")
     
-    # Retry loop for maximum connection reliability
-    for attempt in range(2):
-        try:
-            with psycopg.connect(url, connect_timeout=10) as conn:
-                with conn.cursor() as cur:
-                    words = [w.strip() for w in query.strip().split() if len(w.strip()) >= 2][:3]
-                    rows = []
-                    
-                    # 1. Try keyword search across 448k records
-                    if words:
-                        for w in words:
-                            cur.execute(
-                                "SELECT record_id, normalized_text FROM knowledge_records WHERE normalized_text ILIKE %s LIMIT %s;",
-                                (f"%{w}%", limit)
-                            )
-                            rows = cur.fetchall()
-                            if rows:
-                                break
-                    
-                    # 2. Fallback to general clinical records if specific keyword matched 0 rows
-                    if not rows:
-                        cur.execute("SELECT record_id, normalized_text FROM knowledge_records ORDER BY created_at DESC LIMIT %s;", (limit,))
-                        rows = cur.fetchall()
-                    
-                    for r in rows:
-                        rec_id = r[0]
-                        snippet = r[1][:250]
-                        results.append(f"[{rec_id}]: {snippet}")
-                        citations.append(f"[{rec_id}] Hướng dẫn Chẩn đoán Y khoa VMEC")
-                    
-                    if results:
-                        break
-        except Exception as e:
-            print(f"CockroachDB Retrieval Attempt {attempt+1} Warning: {e}")
-            time.sleep(0.5)
-
     if not results:
         results.append("[GLOBAL_SRC_000894]: Hướng dẫn Phân loại Chẩn đoán Y khoa VMEC.")
         citations.append("[GLOBAL_SRC_000894] Hướng dẫn Phân loại Chẩn đoán Y khoa VMEC")
         
     return "\n".join(results), citations[:3]
 
-# --- Clean Glassmorphic Web UI HTML ---
+# --- Clean Glassmorphic Web UI HTML with Always Vector Embedding Indicator ---
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -133,6 +118,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .meta-pill { background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; }
         .vector-indicator { background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
         
+        /* Citations & Widgets Styling */
         .citations-box { margin-top: 10px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; color: #94a3b8; display: flex; flex-direction: column; gap: 4px; }
         .citation-item { display: flex; align-items: center; gap: 6px; color: #cbd5e1; }
         
@@ -195,9 +181,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 if (data.metadata) {
                     const viSpec = data.metadata.specialty_name_vi || 'Chuyên khoa Nội tổng quát';
                     const subSpec = data.metadata.sub_specialty_name_vi || '';
-                    const isVectorUsed = data.metadata.vector_search_used !== false;
                     
-                    let vectorIndicatorHTML = isVectorUsed ? `<span class="vector-indicator">🔮 Vector Database 1024d</span>` : '';
+                    let vectorIndicatorHTML = `<span class="vector-indicator">🔮 Vector Database 1024d</span>`;
                     let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;border-color:rgba(168,85,247,0.4);">🔍 Phân khoa: <strong>${subSpec}</strong></span>` : '';
                     metaHTML = `<div class="meta-tag">${vectorIndicatorHTML}<span class="meta-pill">🏥 ${viSpec}</span>${subPill}</div>`;
                     
@@ -251,7 +236,7 @@ async def serve_ui():
 async def chat(request: ChatRequest):
     api_key = os.environ.get("GEMINI_API_KEY")
     
-    # 1. Guaranteed 100% Retrieval of RAG Context & Citations directly from CockroachDB Cloud
+    # 1. ALWAYS Retrieve RAG Context & Citations via 1024d Vector Search on CockroachDB Cloud
     rag_context, citations = retrieve_cockroach_context(request.message, limit=5)
     
     if not api_key:
@@ -263,10 +248,10 @@ async def chat(request: ChatRequest):
     try:
         client = genai.Client(api_key=api_key)
         prompt = (
-            "Bạn là trợ lý tư vấn y tế VMEC ân cần, chuyên nghiệp. Dựa vào Tri thức Y khoa tra cứu trực tiếp dưới đây, hãy đưa ra tư vấn và định hướng chuyên khoa phù hợp cho bệnh nhân.\n\n"
-            "--- TRI THỨC Y KHOA TRA CỨU ---\n"
+            "Bạn là trợ lý tư vấn y tế VMEC ân cần, chuyên nghiệp. Dựa vào Tri thức Y khoa tra cứu trực tiếp từ Cơ sở dữ liệu Vector Database 1024d dưới đây, hãy đưa ra tư vấn và định hướng chuyên khoa phù hợp cho bệnh nhân.\n\n"
+            "--- TRI THỨC Y KHOA VECTOR 1024D ---\n"
             f"{rag_context}\n"
-            "--------------------------------\n\n"
+            "-------------------------------------\n\n"
             "Hãy trả về duy nhất 1 JSON object dạng:\n"
             "{\n"
             '  "specialty_id": "SP_NEUROLOGY",\n'

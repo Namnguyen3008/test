@@ -1,4 +1,4 @@
-"""VMEC AI Agent Standalone Microservice (Always 1024d Vector Search & CockroachDB RAG)."""
+"""VMEC AI Agent Standalone Microservice (Versioned Release v3.1.0-vector1024d)."""
 
 import os
 import sys
@@ -14,7 +14,9 @@ import psycopg
 from google import genai
 from google.genai import types
 
-app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version="3.0.0")
+APP_VERSION = "v3.1.0-vector1024d"
+
+app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version=APP_VERSION)
 
 # --- Schemas ---
 class ChatMessage(BaseModel):
@@ -86,16 +88,16 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> tuple[str, list[st
         
     return "\n".join(results), citations[:3]
 
-# --- Clean Glassmorphic Web UI HTML with Always Vector Embedding Indicator ---
-HTML_TEMPLATE = """<!DOCTYPE html>
+# --- Clean Glassmorphic Web UI HTML with Version Badge ---
+HTML_TEMPLATE = f"""<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VMEC AI Agent Chatbot - Trợ Lý Y Khoa Thông Minh</title>
+    <title>VMEC AI Agent Chatbot - {APP_VERSION}</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
+        :root {{
             --bg: #0f172a;
             --panel: rgba(30, 41, 59, 0.7);
             --border: rgba(255, 255, 255, 0.1);
@@ -103,46 +105,47 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             --primary-hover: #4f46e5;
             --accent: #38bdf8;
             --text: #f8fafc;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
-        body { background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
-        .chat-app { width: 100%; max-width: 900px; height: 90vh; background: var(--panel); backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
-        .header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.4); }
-        .header h1 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
-        .badge { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
-        .chat-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
-        .msg { max-width: 85%; padding: 14px 18px; border-radius: 18px; line-height: 1.6; font-size: 0.95rem; white-space: pre-wrap; }
-        .msg.user { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }
-        .msg.agent { align-self: flex-start; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-        .meta-tag { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-        .meta-pill { background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; }
-        .vector-indicator { background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+        }}
+        * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }}
+        body {{ background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }}
+        .chat-app {{ width: 100%; max-width: 900px; height: 90vh; background: var(--panel); backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }}
+        .header {{ padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.4); }}
+        .header h1 {{ font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }}
+        .version-tag {{ font-size: 0.75rem; background: rgba(99, 102, 241, 0.25); color: #a5b4fc; padding: 3px 8px; border-radius: 10px; border: 1px solid rgba(99, 102, 241, 0.4); font-weight: 500; }}
+        .badge {{ background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }}
+        .chat-body {{ flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }}
+        .msg {{ max-width: 85%; padding: 14px 18px; border-radius: 18px; line-height: 1.6; font-size: 0.95rem; white-space: pre-wrap; }}
+        .msg.user {{ align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }}
+        .msg.agent {{ align-self: flex-start; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }}
+        .meta-tag {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }}
+        .meta-pill {{ background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; }}
+        .vector-indicator {{ background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }}
         
         /* Citations & Widgets Styling */
-        .citations-box { margin-top: 10px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; color: #94a3b8; display: flex; flex-direction: column; gap: 4px; }
-        .citation-item { display: flex; align-items: center; gap: 6px; color: #cbd5e1; }
+        .citations-box {{ margin-top: 10px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; color: #94a3b8; display: flex; flex-direction: column; gap: 4px; }}
+        .citation-item {{ display: flex; align-items: center; gap: 6px; color: #cbd5e1; }}
         
-        .widget-section { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px; }
-        .widget-title { font-size: 0.85rem; color: #94a3b8; font-weight: 500; display: flex; align-items: center; gap: 6px; }
-        .options-container { display: flex; flex-wrap: wrap; gap: 8px; }
-        .option-btn { background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #7dd3fc; padding: 6px 14px; border-radius: 16px; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; font-weight: 500; }
-        .option-btn:hover { background: rgba(56, 189, 248, 0.3); transform: translateY(-1px); }
-        .booking-card { background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2)); border: 1px solid rgba(168, 85, 247, 0.4); padding: 12px 16px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-        .booking-btn { background: #8b5cf6; color: white; border: none; padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
-        .booking-btn:hover { background: #7c3aed; }
-        .checklist-box { background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.08); padding: 10px 14px; border-radius: 12px; font-size: 0.82rem; color: #cbd5e1; }
-        .checklist-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .widget-section {{ margin-top: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px; }}
+        .widget-title {{ font-size: 0.85rem; color: #94a3b8; font-weight: 500; display: flex; align-items: center; gap: 6px; }}
+        .options-container {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+        .option-btn {{ background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #7dd3fc; padding: 6px 14px; border-radius: 16px; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; font-weight: 500; }}
+        .option-btn:hover {{ background: rgba(56, 189, 248, 0.3); transform: translateY(-1px); }}
+        .booking-card {{ background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2)); border: 1px solid rgba(168, 85, 247, 0.4); padding: 12px 16px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }}
+        .booking-btn {{ background: #8b5cf6; color: white; border: none; padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }}
+        .booking-btn:hover {{ background: #7c3aed; }}
+        .checklist-box {{ background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.08); padding: 10px 14px; border-radius: 12px; font-size: 0.82rem; color: #cbd5e1; }}
+        .checklist-item {{ display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }}
         
-        .footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 12px; background: rgba(15, 23, 42, 0.4); }
-        input { flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 14px 20px; border-radius: 14px; color: white; outline: none; }
-        button.send-btn { background: var(--primary); color: white; border: none; padding: 14px 28px; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
-        button.send-btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .footer {{ padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 12px; background: rgba(15, 23, 42, 0.4); }}
+        input {{ flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 14px 20px; border-radius: 14px; color: white; outline: none; }}
+        button.send-btn {{ background: var(--primary); color: white; border: none; padding: 14px 28px; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s; }}
+        button.send-btn:hover {{ background: var(--primary-hover); transform: translateY(-1px); }}
     </style>
 </head>
 <body>
     <div class="chat-app">
         <div class="header">
-            <h1>🤖 VMEC AI Agent Chatbot</h1>
+            <h1>🤖 VMEC AI Agent Chatbot <span class="version-tag">{APP_VERSION}</span></h1>
             <span class="badge">🟢 TRỰC TUYẾN 24/7</span>
         </div>
         <div class="chat-body" id="chat">
@@ -155,7 +158,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
     <script>
         const history = [];
-        async function send(customText) {
+        async function send(customText) {{
             const input = document.getElementById('userInput');
             const txt = customText || input.value.trim();
             if (!txt) return;
@@ -168,62 +171,62 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             typing.innerText = '🔮 AI đang tra cứu Vector Database 1024d & phân tích...';
             document.getElementById('chat').appendChild(typing);
             
-            try {
-                const res = await fetch('/api/v1/chat', {
+            try {{
+                const res = await fetch('/api/v1/chat', {{
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: txt, history: history })
-                });
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ message: txt, history: history }})
+                }});
                 const data = await res.json();
                 typing.remove();
                 
                 let metaHTML = '';
-                if (data.metadata) {
+                if (data.metadata) {{
                     const viSpec = data.metadata.specialty_name_vi || 'Chuyên khoa Nội tổng quát';
                     const subSpec = data.metadata.sub_specialty_name_vi || '';
                     
                     let vectorIndicatorHTML = `<span class="vector-indicator">🔮 Vector Database 1024d</span>`;
-                    let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;border-color:rgba(168,85,247,0.4);">🔍 Phân khoa: <strong>${subSpec}</strong></span>` : '';
-                    metaHTML = `<div class="meta-tag">${vectorIndicatorHTML}<span class="meta-pill">🏥 ${viSpec}</span>${subPill}</div>`;
+                    let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;border-color:rgba(168,85,247,0.4);">🔍 Phân khoa: <strong>${{subSpec}}</strong></span>` : '';
+                    metaHTML = `<div class="meta-tag">${{vectorIndicatorHTML}}<span class="meta-pill">🏥 ${{viSpec}}</span>${{subPill}}</div>`;
                     
                     // Render Medical Source Citations
-                    if (data.metadata.citations && data.metadata.citations.length > 0) {
-                        let citeHTML = data.metadata.citations.map(c => `<div class="citation-item">📖 ${c}</div>`).join('');
-                        metaHTML += `<div class="citations-box"><div style="font-weight:600;margin-bottom:2px;color:#cbd5e1;">📚 Nguồn tri thức tham khảo:</div>${citeHTML}</div>`;
-                    }
+                    if (data.metadata.citations && data.metadata.citations.length > 0) {{
+                        let citeHTML = data.metadata.citations.map(c => `<div class="citation-item">📖 ${{c}}</div>`).join('');
+                        metaHTML += `<div class="citations-box"><div style="font-weight:600;margin-bottom:2px;color:#cbd5e1;">📚 Nguồn tri thức tham khảo:</div>${{citeHTML}}</div>`;
+                    }}
 
                     // Render Interactive Quick Options Widget
-                    if (data.metadata.quick_options && data.metadata.quick_options.length > 0) {
-                        let optsHTML = data.metadata.quick_options.map(opt => `<button class="option-btn" onclick="send('${opt.replace(/'/g, "\\'")}')">🔘 ${opt}</button>`).join('');
-                        metaHTML += `<div class="widget-section"><div class="widget-title">💡 Chọn nhanh để giúp AI làm rõ hơn:</div><div class="options-container">${optsHTML}</div></div>`;
-                    }
+                    if (data.metadata.quick_options && data.metadata.quick_options.length > 0) {{
+                        let optsHTML = data.metadata.quick_options.map(opt => `<button class="option-btn" onclick="send('${{opt.replace(/'/g, "\\'")}}')">🔘 ${{opt}}</button>`).join('');
+                        metaHTML += `<div class="widget-section"><div class="widget-title">💡 Chọn nhanh để giúp AI làm rõ hơn:</div><div class="options-container">${{optsHTML}}</div></div>`;
+                    }}
                     
                     // Render Pre-Clinical Checklist Widget
-                    if (data.metadata.checklist && data.metadata.checklist.length > 0) {
-                        let listHTML = data.metadata.checklist.map(item => `<div class="checklist-item">📌 ${item}</div>`).join('');
-                        metaHTML += `<div class="widget-section"><div class="widget-title">📋 Lưu ý chuẩn bị trước khi thăm khám:</div><div class="checklist-box">${listHTML}</div></div>`;
-                    }
+                    if (data.metadata.checklist && data.metadata.checklist.length > 0) {{
+                        let listHTML = data.metadata.checklist.map(item => `<div class="checklist-item">📌 ${{item}}</div>`).join('');
+                        metaHTML += `<div class="widget-section"><div class="widget-title">📋 Lưu ý chuẩn bị trước khi thăm khám:</div><div class="checklist-box">${{listHTML}}</div></div>`;
+                    }}
 
                     // Render Quick Booking Widget
-                    metaHTML += `<div class="booking-card"><div><strong style="color:#e0e7ff;font-size:0.88rem;">Đặt lịch hẹn thăm khám</strong><br><span style="color:#a5b4fc;font-size:0.78rem;">${viSpec}</span></div><button class="booking-btn" onclick="alert('Đã mở trang Đặt lịch hẹn thăm khám tại ${viSpec}!')">📅 Đặt lịch ngay</button></div>`;
-                }
+                    metaHTML += `<div class="booking-card"><div><strong style="color:#e0e7ff;font-size:0.88rem;">Đặt lịch hẹn thăm khám</strong><br><span style="color:#a5b4fc;font-size:0.78rem;">${{viSpec}}</span></div><button class="booking-btn" onclick="alert('Đã mở trang Đặt lịch hẹn thăm khám tại ${{viSpec}}!')">📅 Đặt lịch ngay</button></div>`;
+                }}
                 
                 appendMsg('agent', data.response + metaHTML);
-                history.push({ role: 'user', content: txt });
-                history.push({ role: 'assistant', content: data.response });
-            } catch (e) {
+                history.push({{ role: 'user', content: txt }});
+                history.push({{ role: 'assistant', content: data.response }});
+            }} catch (e) {{
                 typing.remove();
                 appendMsg('agent', '❌ Lỗi kết nối máy chủ tư vấn!');
-            }
-        }
-        function appendMsg(role, html) {
+            }}
+        }}
+        function appendMsg(role, html) {{
             const d = document.createElement('div');
             d.className = 'msg ' + role;
             d.innerHTML = html;
             const chat = document.getElementById('chat');
             chat.appendChild(d);
             chat.scrollTop = chat.scrollHeight;
-        }
+        }}
     </script>
 </body>
 </html>"""
@@ -242,7 +245,7 @@ async def chat(request: ChatRequest):
     if not api_key:
         return ChatResponse(
             response="Hệ thống AI đang kết nối. Vui lòng khai báo GEMINI_API_KEY trên biến môi trường.",
-            metadata={"status": "unconfigured"}
+            metadata={"status": "unconfigured", "version": APP_VERSION}
         )
     
     try:
@@ -287,6 +290,7 @@ async def chat(request: ChatRequest):
             response=rationale,
             emergency=False,
             metadata={
+                "version": APP_VERSION,
                 "specialty_id": spec_id,
                 "specialty_name_vi": vi_name,
                 "sub_specialty_name_vi": sub_name,
@@ -299,7 +303,7 @@ async def chat(request: ChatRequest):
     except Exception as e:
         return ChatResponse(
             response="Chào bạn, rất chia sẻ với tình trạng sức khỏe bạn đang gặp phải. Bạn nên thu xếp thăm khám trực tiếp tại cơ sở y tế gần nhất để bác sĩ chẩn đoán chính xác nhé.",
-            metadata={"specialty_name_vi": "Chuyên khoa Nội tổng quát", "vector_search_used": True, "citations": citations, "quick_options": [], "checklist": []}
+            metadata={"version": APP_VERSION, "specialty_name_vi": "Chuyên khoa Nội tổng quát", "vector_search_used": True, "citations": citations, "quick_options": [], "checklist": []}
         )
 
 if __name__ == "__main__":

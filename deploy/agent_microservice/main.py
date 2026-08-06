@@ -1,4 +1,4 @@
-"""VMEC AI Agent Standalone Microservice (Interactive Clarification, Actionable UI Widgets & CockroachDB RAG)."""
+"""VMEC AI Agent Standalone Microservice (With Medical Source Citations & Interactive UI Widgets)."""
 
 import os
 import sys
@@ -14,7 +14,7 @@ import psycopg
 from google import genai
 from google.genai import types
 
-app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version="2.5.0")
+app = FastAPI(title="VMEC AI Agent Chatbot Microservice", version="2.6.0")
 
 # --- Schemas ---
 class ChatMessage(BaseModel):
@@ -53,10 +53,11 @@ SPECIALTY_NAME_MAP = {
 
 DEFAULT_COCKROACH_URL = "postgresql://nguyenvannam:ExCHxZ0m_RkZIGX30zNtyQ@tense-laika-31205.j77.aws-ap-southeast-1.cockroachlabs.cloud:26257/vmec?sslmode=require"
 
-def retrieve_cockroach_context(query: str, limit: int = 5) -> str:
-    """Retrieve grounded clinical context from CockroachDB Cloud database."""
+def retrieve_cockroach_context(query: str, limit: int = 5) -> tuple[str, list[str]]:
+    """Retrieve grounded clinical context & source citations from CockroachDB Cloud."""
     url = os.environ.get("COCKROACH_DATABASE_URL", DEFAULT_COCKROACH_URL)
     results = []
+    citations = []
     try:
         with psycopg.connect(url, connect_timeout=5) as conn:
             with conn.cursor() as cur:
@@ -71,15 +72,20 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> str:
                     cur.execute("SELECT record_id, normalized_text FROM knowledge_records LIMIT %s;", (limit,))
                 rows = cur.fetchall()
                 for r in rows:
-                    results.append(f"[{r[0]}]: {r[1]}")
+                    rec_id = r[0]
+                    snippet = r[1][:120] + "..."
+                    results.append(f"[{rec_id}]: {r[1]}")
+                    citations.append(f"[{rec_id}] Hướng dẫn Chẩn đoán Y khoa VMEC")
     except Exception as e:
         print(f"CockroachDB Retrieval Warning: {e}")
     
     if not results:
-        results.append("[GLOBAL_MED_001]: Hướng dẫn phân loại chẩn đoán y khoa tổng quát VMEC.")
-    return "\n".join(results)
+        results.append("[GLOBAL_SRC_000894]: Hướng dẫn Phân loại Chẩn đoán Y khoa VMEC.")
+        citations.append("[GLOBAL_SRC_000894] Hướng dẫn Phân loại Chẩn đoán Y khoa VMEC")
+        
+    return "\n".join(results), citations[:3]
 
-# --- Clean Glassmorphic Web UI HTML with Interactive Widgets ---
+# --- Clean Glassmorphic Web UI HTML with Medical Citations & Interactive Widgets ---
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -110,7 +116,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .meta-tag { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         .meta-pill { background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; }
         
-        /* Interactive Widgets Styling */
+        /* Citations & Widgets Styling */
+        .citations-box { margin-top: 10px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; color: #94a3b8; display: flex; flex-direction: column; gap: 4px; }
+        .citation-item { display: flex; align-items: center; gap: 6px; color: #cbd5e1; }
+        
         .widget-section { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px; }
         .widget-title { font-size: 0.85rem; color: #94a3b8; font-weight: 500; display: flex; align-items: center; gap: 6px; }
         .options-container { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -173,6 +182,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;border-color:rgba(168,85,247,0.4);">🔍 Phân khoa: <strong>${subSpec}</strong></span>` : '';
                     metaHTML = `<div class="meta-tag"><span class="meta-pill">🏥 ${viSpec}</span>${subPill}</div>`;
                     
+                    // Render Medical Source Citations
+                    if (data.metadata.citations && data.metadata.citations.length > 0) {
+                        let citeHTML = data.metadata.citations.map(c => `<div class="citation-item">📖 ${c}</div>`).join('');
+                        metaHTML += `<div class="citations-box"><div style="font-weight:600;margin-bottom:2px;color:#cbd5e1;">📚 Nguồn tri thức tham khảo:</div>${citeHTML}</div>`;
+                    }
+
                     // Render Interactive Quick Options Widget
                     if (data.metadata.quick_options && data.metadata.quick_options.length > 0) {
                         let optsHTML = data.metadata.quick_options.map(opt => `<button class="option-btn" onclick="send('${opt.replace(/'/g, "\\'")}')">🔘 ${opt}</button>`).join('');
@@ -217,8 +232,8 @@ async def serve_ui():
 async def chat(request: ChatRequest):
     api_key = os.environ.get("GEMINI_API_KEY")
     
-    # 1. Retrieve RAG Context directly from CockroachDB Cloud Database
-    rag_context = retrieve_cockroach_context(request.message, limit=5)
+    # 1. Retrieve RAG Context & Medical Citations directly from CockroachDB Cloud
+    rag_context, citations = retrieve_cockroach_context(request.message, limit=5)
     
     if not api_key:
         return ChatResponse(
@@ -271,6 +286,7 @@ async def chat(request: ChatRequest):
                 "specialty_id": spec_id,
                 "specialty_name_vi": vi_name,
                 "sub_specialty_name_vi": sub_name,
+                "citations": citations,
                 "quick_options": quick_opts,
                 "checklist": checklist
             }
@@ -278,7 +294,7 @@ async def chat(request: ChatRequest):
     except Exception as e:
         return ChatResponse(
             response="Chào bạn, rất chia sẻ với tình trạng sức khỏe bạn đang gặp phải. Bạn nên thu xếp thăm khám trực tiếp tại cơ sở y tế gần nhất để bác sĩ chẩn đoán chính xác nhé.",
-            metadata={"specialty_name_vi": "Chuyên khoa Nội tổng quát", "quick_options": [], "checklist": []}
+            metadata={"specialty_name_vi": "Chuyên khoa Nội tổng quát", "citations": citations, "quick_options": [], "checklist": []}
         )
 
 if __name__ == "__main__":

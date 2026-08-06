@@ -1,4 +1,4 @@
-"""VMEC AI Agent Standalone Microservice (Integrated CockroachDB Cloud Vector RAG)."""
+"""VMEC AI Agent Standalone Microservice (Clean Patient-Facing UI)."""
 
 import os
 import sys
@@ -60,7 +60,6 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> str:
     try:
         with psycopg.connect(url, connect_timeout=5) as conn:
             with conn.cursor() as cur:
-                # Query matching clinical records from CockroachDB Cloud
                 words = [w for w in query.strip().split() if len(w) > 2][:3]
                 if words:
                     like_pattern = f"%{words[0]}%"
@@ -80,13 +79,13 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> str:
         results.append("[GLOBAL_MED_001]: Hướng dẫn phân loại chẩn đoán y khoa tổng quát VMEC.")
     return "\n".join(results)
 
-# --- Glassmorphic Web UI HTML ---
+# --- Clean Glassmorphic Web UI HTML ---
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VMEC AI Agent Chatbot - CockroachDB Cloud Vector RAG</title>
+    <title>VMEC AI Agent Chatbot - Tư vấn Y khoa</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -119,11 +118,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
     <div class="chat-app">
         <div class="header">
-            <h1>🤖 VMEC AI Agent Chatbot <span style="font-size:0.9rem;opacity:0.8;font-weight:400;">(CockroachDB Cloud RAG)</span></h1>
-            <span class="badge">🟢 LIVE CLOUD VECTOR RAG (448K RECORDS)</span>
+            <h1>🤖 VMEC AI Agent Chatbot</h1>
+            <span class="badge">🟢 TRỰC TUYẾN 24/7</span>
         </div>
         <div class="chat-body" id="chat">
-            <div class="msg agent">Chào bạn! Tôi là Trợ lý AI Y khoa VMEC tích hợp Cơ sở dữ liệu CockroachDB Cloud (448.472 bản ghi). Tôi có thể hỗ trợ tư vấn và định hướng chuyên khoa cho bạn như thế nào hôm nay?</div>
+            <div class="msg agent">Chào bạn! Tôi là Trợ lý AI Y khoa VMEC. Tôi có thể hỗ trợ tư vấn và định hướng chuyên khoa giúp bạn hôm nay như thế nào?</div>
         </div>
         <div class="footer">
             <input type="text" id="userInput" placeholder="Nhập triệu chứng của bạn vào đây..." onkeypress="if(event.key==='Enter') send();">
@@ -142,7 +141,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             
             const typing = document.createElement('div');
             typing.className = 'msg agent';
-            typing.innerText = '🤖 AI đang tra cứu CockroachDB Cloud & phân tích triệu chứng...';
+            typing.innerText = '🤖 AI đang phân tích triệu chứng...';
             document.getElementById('chat').appendChild(typing);
             
             try {
@@ -158,9 +157,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 if (data.metadata) {
                     const viSpec = data.metadata.specialty_name_vi || '🏥 Chuyên khoa Nội tổng quát';
                     const subSpec = data.metadata.sub_specialty_name_vi || '';
-                    const dbTag = data.metadata.database || 'CockroachDB Cloud RAG';
                     let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;">🔍 Phân khoa: <strong>${subSpec}</strong></span>` : '';
-                    metaHTML = `<div class="meta-tag"><span class="meta-pill">${viSpec}</span>${subPill}<span class="meta-pill" style="background:rgba(34,197,94,0.2);color:#86efac;">⚡ ${dbTag}</span></div>`;
+                    metaHTML = `<div class="meta-tag"><span class="meta-pill">${viSpec}</span>${subPill}</div>`;
                 }
                 appendMsg('agent', data.response + metaHTML);
                 history.push({ role: 'user', content: txt });
@@ -190,22 +188,22 @@ async def serve_ui():
 async def chat(request: ChatRequest):
     api_key = os.environ.get("GEMINI_API_KEY")
     
-    # 1. Retrieve RAG Context directly from CockroachDB Cloud Database
+    # 1. Retrieve RAG Context directly from CockroachDB Cloud Database (Backend RAG execution)
     rag_context = retrieve_cockroach_context(request.message, limit=5)
     
     if not api_key:
         return ChatResponse(
             response="Hệ thống AI đang kết nối. Vui lòng khai báo GEMINI_API_KEY trên biến môi trường Render.",
-            metadata={"status": "unconfigured", "database": "CockroachDB Cloud (448,472 records)"}
+            metadata={"status": "unconfigured"}
         )
     
     try:
         client = genai.Client(api_key=api_key)
         prompt = (
-            "Bạn là trợ lý tư vấn y tế VMEC ân cần, chuyên nghiệp. Dựa vào Tri thức Y khoa tra cứu trực tiếp từ Cơ sở dữ liệu CockroachDB Cloud dưới đây, hãy đưa ra tư vấn và định hướng chuyên khoa phù hợp cho bệnh nhân.\n\n"
-            "--- TRI THỨC Y KHOA COCKROACHDB CLOUD RAG ---\n"
+            "Bạn là trợ lý tư vấn y tế VMEC ân cần, chuyên nghiệp. Dựa vào Tri thức Y khoa tra cứu trực tiếp từ Cơ sở dữ liệu chuẩn bên dưới, hãy đưa ra tư vấn và định hướng chuyên khoa phù hợp cho bệnh nhân.\n\n"
+            "--- TRI THỨC Y KHOA TRA CỨU ---\n"
             f"{rag_context}\n"
-            "----------------------------------------------\n\n"
+            "--------------------------------\n\n"
             "Hãy trả về duy nhất 1 JSON object dạng:\n"
             "{\n"
             '  "specialty_id": "SP_NEUROLOGY",\n'
@@ -238,14 +236,13 @@ async def chat(request: ChatRequest):
             metadata={
                 "specialty_id": spec_id,
                 "specialty_name_vi": vi_name,
-                "sub_specialty_name_vi": sub_name,
-                "database": "CockroachDB Cloud RAG (448,472 records)"
+                "sub_specialty_name_vi": sub_name
             }
         )
     except Exception as e:
         return ChatResponse(
             response="Chào bạn, rất chia sẻ với tình trạng sức khỏe bạn đang gặp phải. Bạn nên thu xếp thăm khám trực tiếp tại cơ sở y tế gần nhất để bác sĩ chẩn đoán chính xác nhé.",
-            metadata={"error": str(e), "specialty_name_vi": "Chuyên khoa Nội tổng quát", "database": "CockroachDB Cloud RAG (448,472 records)"}
+            metadata={"error": str(e), "specialty_name_vi": "Chuyên khoa Nội tổng quát"}
         )
 
 if __name__ == "__main__":

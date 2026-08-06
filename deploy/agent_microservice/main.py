@@ -1,9 +1,10 @@
-"""VMEC AI Agent Standalone Microservice (Clean Production Web UI)."""
+"""VMEC AI Agent Standalone Microservice (Smart Intent Handling & Clean Production UI)."""
 
 import os
 import sys
 import json
 import time
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -53,6 +54,23 @@ SPECIALTY_NAME_MAP = {
 
 DEFAULT_COCKROACH_URL = "postgresql://nguyenvannam:ExCHxZ0m_RkZIGX30zNtyQ@tense-laika-31205.j77.aws-ap-southeast-1.cockroachlabs.cloud:26257/vmec?sslmode=require"
 
+GREETING_PATTERNS = [
+    r"^\s*(xin\s+)?chào\b",
+    r"^\s*hi\b",
+    r"^\s*hello\b",
+    r"^\s*bạn\s+ơi\b",
+    r"^\s*tư\s+vấn\s+giúp\b",
+    r"^\s*tôi\s+muốn\s+hỏi\b"
+]
+
+def is_simple_greeting(text: str) -> bool:
+    clean = text.strip().lower()
+    if len(clean) < 15:
+        for pat in GREETING_PATTERNS:
+            if re.search(pat, clean):
+                return True
+    return False
+
 def retrieve_cockroach_context(query: str, limit: int = 5) -> str:
     """Retrieve grounded clinical context from CockroachDB Cloud database."""
     url = os.environ.get("COCKROACH_DATABASE_URL", DEFAULT_COCKROACH_URL)
@@ -60,6 +78,7 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> str:
     try:
         with psycopg.connect(url, connect_timeout=5) as conn:
             with conn.cursor() as cur:
+                # Query matching clinical records using keyword matching
                 words = [w for w in query.strip().split() if len(w) > 2][:3]
                 if words:
                     like_pattern = f"%{words[0]}%"
@@ -67,16 +86,14 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> str:
                         "SELECT record_id, normalized_text FROM knowledge_records WHERE normalized_text ILIKE %s LIMIT %s;",
                         (like_pattern, limit)
                     )
-                else:
-                    cur.execute("SELECT record_id, normalized_text FROM knowledge_records LIMIT %s;", (limit,))
-                rows = cur.fetchall()
-                for r in rows:
-                    results.append(f"[{r[0]}]: {r[1]}")
+                    rows = cur.fetchall()
+                    for r in rows:
+                        results.append(f"[{r[0]}]: {r[1]}")
     except Exception as e:
         print(f"CockroachDB Retrieval Warning: {e}")
     
     if not results:
-        results.append("[GLOBAL_MED_001]: Hướng dẫn phân loại chẩn đoán y khoa tổng quát VMEC.")
+        results.append("[GLOBAL_MED_GENERAL]: Quy tắc định hướng tư vấn y tế tổng quát VMEC.")
     return "\n".join(results)
 
 # --- Clean Glassmorphic Web UI HTML ---
@@ -154,8 +171,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 typing.remove();
                 
                 let metaHTML = '';
-                if (data.metadata) {
-                    const viSpec = data.metadata.specialty_name_vi || 'Chuyên khoa Nội tổng quát';
+                if (data.metadata && data.metadata.specialty_name_vi) {
+                    const viSpec = data.metadata.specialty_name_vi;
                     const subSpec = data.metadata.sub_specialty_name_vi || '';
                     let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;border-color:rgba(168,85,247,0.4);">🔍 Phân khoa: <strong>${subSpec}</strong></span>` : '';
                     metaHTML = `<div class="meta-tag"><span class="meta-pill">🏥 ${viSpec}</span>${subPill}</div>`;
@@ -186,9 +203,16 @@ async def serve_ui():
 
 @app.post("/api/v1/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
+    # 1. Handle General Greeting Queries cleanly
+    if is_simple_greeting(request.message):
+        return ChatResponse(
+            response="Chào bạn! Rất vui được hỗ trợ bạn. Bạn đang gặp phải các triệu chứng hay vấn đề sức khỏe nào cần tôi tư vấn và định hướng chuyên khoa hôm nay?",
+            metadata={}
+        )
+
     api_key = os.environ.get("GEMINI_API_KEY")
     
-    # 1. Retrieve RAG Context directly from CockroachDB Cloud Database
+    # 2. Retrieve RAG Context directly from CockroachDB Cloud Database
     rag_context = retrieve_cockroach_context(request.message, limit=5)
     
     if not api_key:
@@ -200,7 +224,8 @@ async def chat(request: ChatRequest):
     try:
         client = genai.Client(api_key=api_key)
         prompt = (
-            "Bạn là trợ lý tư vấn y tế VMEC ân cần, chuyên nghiệp. Dựa vào Tri thức Y khoa tra cứu trực tiếp dưới đây, hãy đưa ra tư vấn và định hướng chuyên khoa phù hợp cho bệnh nhân.\n\n"
+            "Bạn là trợ lý tư vấn y tế VMEC ân cần, chuyên nghiệp. Dựa vào Tri thức Y khoa tra cứu trực tiếp dưới đây, hãy đưa ra tư vấn và định hướng chuyên khoa phù hợp cho bệnh nhân.\n"
+            "LƯU Ý: Chỉ định hướng Chuyên khoa Nhi nếu bệnh nhân đề cập đến trẻ em/bé. Nếu bệnh nhân là người lớn hoặc không đề cập đối tượng, hãy tư vấn cho người lớn.\n\n"
             "--- TRI THỨC Y KHOA TRA CỨU ---\n"
             f"{rag_context}\n"
             "--------------------------------\n\n"

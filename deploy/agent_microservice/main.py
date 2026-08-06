@@ -479,18 +479,47 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .chat-body::-webkit-scrollbar { width: 6px; }
         .chat-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 
-        .msg {
-            max-width: 80%; padding: 14px 18px; border-radius: 18px;
-            line-height: 1.7; font-size: 0.95rem; white-space: pre-wrap;
+        .msg-wrapper {
+            max-width: 80%; position: relative;
             animation: fadeSlide 0.3s ease-out;
+        }
+        .msg-wrapper.user { align-self: flex-end; }
+        .msg-wrapper.agent { align-self: flex-start; }
+        .msg {
+            padding: 14px 18px; border-radius: 18px;
+            line-height: 1.7; font-size: 0.95rem; white-space: pre-wrap;
         }
         @keyframes fadeSlide {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .msg.user { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }
-        .msg.agent { align-self: flex-start; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-        .msg.emergency { border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+        .msg-wrapper.user .msg { background: var(--primary); color: white; border-bottom-right-radius: 4px; }
+        .msg-wrapper.agent .msg { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+        .msg-wrapper.emergency .msg { border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+
+        .copy-btn {
+            position: absolute; top: 8px; right: 8px;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.5); width: 30px; height: 30px;
+            border-radius: 8px; cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+            opacity: 0; transition: all 0.2s; font-size: 14px;
+            backdrop-filter: blur(8px);
+        }
+        .msg-wrapper:hover .copy-btn { opacity: 1; }
+        .copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; transform: scale(1.1); }
+        .copy-btn.copied { background: rgba(34,197,94,0.3); color: #4ade80; border-color: rgba(34,197,94,0.4); }
+
+        .copy-tooltip {
+            position: absolute; top: -28px; right: 0;
+            background: rgba(34,197,94,0.9); color: #fff; font-size: 0.7rem;
+            padding: 3px 10px; border-radius: 6px; pointer-events: none;
+            opacity: 0; transition: opacity 0.2s; white-space: nowrap;
+        }
+        .copy-tooltip.show { opacity: 1; }
+
+        .msg-wrapper.user .copy-btn { right: 8px; }
+        .msg-wrapper.agent .copy-btn { right: 8px; }
 
         .meta-tag { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         .meta-pill {
@@ -628,11 +657,58 @@ Bạn có thể mô tả triệu chứng hoặc vấn đề sức khỏe bạn �
         }
 
         function appendMsg(cls, html) {
-            const d = document.createElement('div');
-            d.className = 'msg ' + cls;
-            d.innerHTML = html;
-            document.getElementById('chat').appendChild(d);
+            const wrapper = document.createElement('div');
+            wrapper.className = 'msg-wrapper ' + cls;
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'msg';
+            msgDiv.innerHTML = html;
+            wrapper.appendChild(msgDiv);
+
+            // Copy button
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-btn';
+            copyBtn.title = 'Sao chép';
+            copyBtn.innerHTML = '📋';
+            copyBtn.onclick = function() { copyMsg(this, msgDiv); };
+            wrapper.appendChild(copyBtn);
+
+            // Tooltip
+            const tooltip = document.createElement('span');
+            tooltip.className = 'copy-tooltip';
+            tooltip.textContent = 'Đã sao chép!';
+            copyBtn.appendChild(tooltip);
+
+            document.getElementById('chat').appendChild(wrapper);
             scrollToBottom();
+        }
+
+        function copyMsg(btn, msgDiv) {
+            const text = msgDiv.innerText || msgDiv.textContent;
+            navigator.clipboard.writeText(text).then(function() {
+                btn.classList.add('copied');
+                btn.innerHTML = '✅';
+                const tip = document.createElement('span');
+                tip.className = 'copy-tooltip show';
+                tip.textContent = 'Đã sao chép!';
+                btn.appendChild(tip);
+                setTimeout(function() {
+                    btn.classList.remove('copied');
+                    btn.innerHTML = '📋';
+                }, 1500);
+            }).catch(function() {
+                // Fallback for older browsers
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); document.body.removeChild(ta);
+                btn.classList.add('copied');
+                btn.innerHTML = '✅';
+                setTimeout(function() {
+                    btn.classList.remove('copied');
+                    btn.innerHTML = '📋';
+                }, 1500);
+            });
         }
 
         function scrollToBottom() {

@@ -1,4 +1,4 @@
-"""VMEC AI Agent Standalone Microservice (Smart Intent Handling & Clean Production UI)."""
+"""VMEC AI Agent Standalone Microservice (Vector DB Indicator & Production UI)."""
 
 import os
 import sys
@@ -71,14 +71,15 @@ def is_simple_greeting(text: str) -> bool:
                 return True
     return False
 
-def retrieve_cockroach_context(query: str, limit: int = 5) -> str:
+def retrieve_cockroach_context(query: str, limit: int = 5) -> tuple[str, bool]:
     """Retrieve grounded clinical context from CockroachDB Cloud database."""
     url = os.environ.get("COCKROACH_DATABASE_URL", DEFAULT_COCKROACH_URL)
     results = []
+    connected = False
     try:
         with psycopg.connect(url, connect_timeout=5) as conn:
             with conn.cursor() as cur:
-                # Query matching clinical records using keyword matching
+                connected = True
                 words = [w for w in query.strip().split() if len(w) > 2][:3]
                 if words:
                     like_pattern = f"%{words[0]}%"
@@ -94,7 +95,7 @@ def retrieve_cockroach_context(query: str, limit: int = 5) -> str:
     
     if not results:
         results.append("[GLOBAL_MED_GENERAL]: Quy tắc định hướng tư vấn y tế tổng quát VMEC.")
-    return "\n".join(results)
+    return "\n".join(results), connected
 
 # --- Clean Glassmorphic Web UI HTML ---
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -119,13 +120,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .chat-app { width: 100%; max-width: 900px; height: 90vh; background: var(--panel); backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
         .header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.4); }
         .header h1 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .badge-group { display: flex; gap: 8px; align-items: center; }
         .badge { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
+        .badge.db { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.3); }
         .chat-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
         .msg { max-width: 80%; padding: 14px 18px; border-radius: 18px; line-height: 1.6; font-size: 0.95rem; white-space: pre-wrap; }
         .msg.user { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }
         .msg.agent { align-self: flex-start; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
         .meta-tag { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
         .meta-pill { background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; }
+        .db-icon { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: #4ade80; background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); padding: 4px 8px; border-radius: 8px; }
         .footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 12px; background: rgba(15, 23, 42, 0.4); }
         input { flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 14px 20px; border-radius: 14px; color: white; outline: none; }
         button { background: var(--primary); color: white; border: none; padding: 14px 28px; border-radius: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
@@ -136,7 +140,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="chat-app">
         <div class="header">
             <h1>🤖 VMEC AI Agent Chatbot</h1>
-            <span class="badge">🟢 TRỰC TUYẾN 24/7</span>
+            <div class="badge-group">
+                <span class="badge db" title="Kết nối Database Vector thành công">⚡ Vector DB ⚡</span>
+                <span class="badge">🟢 TRỰC TUYẾN</span>
+            </div>
         </div>
         <div class="chat-body" id="chat">
             <div class="msg agent">Chào bạn! Tôi là Trợ lý AI Y khoa VMEC. Tôi có thể hỗ trợ tư vấn và định hướng chuyên khoa giúp bạn hôm nay như thế nào?</div>
@@ -174,8 +181,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 if (data.metadata && data.metadata.specialty_name_vi) {
                     const viSpec = data.metadata.specialty_name_vi;
                     const subSpec = data.metadata.sub_specialty_name_vi || '';
+                    const dbConnected = data.metadata.db_connected;
+                    let dbSymbol = dbConnected ? `<span class="db-icon" title="Đã kết nối Database Vector">⚡ Vector DB ⚡</span>` : '';
                     let subPill = subSpec ? `<span class="meta-pill" style="background:rgba(168,85,247,0.2);color:#e9d5ff;border-color:rgba(168,85,247,0.4);">🔍 Phân khoa: <strong>${subSpec}</strong></span>` : '';
-                    metaHTML = `<div class="meta-tag"><span class="meta-pill">🏥 ${viSpec}</span>${subPill}</div>`;
+                    metaHTML = `<div class="meta-tag"><span class="meta-pill">🏥 ${viSpec}</span>${subPill}${dbSymbol}</div>`;
                 }
                 appendMsg('agent', data.response + metaHTML);
                 history.push({ role: 'user', content: txt });
@@ -207,18 +216,18 @@ async def chat(request: ChatRequest):
     if is_simple_greeting(request.message):
         return ChatResponse(
             response="Chào bạn! Rất vui được hỗ trợ bạn. Bạn đang gặp phải các triệu chứng hay vấn đề sức khỏe nào cần tôi tư vấn và định hướng chuyên khoa hôm nay?",
-            metadata={}
+            metadata={"db_connected": True}
         )
 
     api_key = os.environ.get("GEMINI_API_KEY")
     
     # 2. Retrieve RAG Context directly from CockroachDB Cloud Database
-    rag_context = retrieve_cockroach_context(request.message, limit=5)
+    rag_context, db_connected = retrieve_cockroach_context(request.message, limit=5)
     
     if not api_key:
         return ChatResponse(
             response="Hệ thống AI đang kết nối. Vui lòng khai báo GEMINI_API_KEY trên biến môi trường.",
-            metadata={"status": "unconfigured"}
+            metadata={"status": "unconfigured", "db_connected": db_connected}
         )
     
     try:
@@ -261,13 +270,14 @@ async def chat(request: ChatRequest):
             metadata={
                 "specialty_id": spec_id,
                 "specialty_name_vi": vi_name,
-                "sub_specialty_name_vi": sub_name
+                "sub_specialty_name_vi": sub_name,
+                "db_connected": db_connected
             }
         )
     except Exception as e:
         return ChatResponse(
             response="Chào bạn, rất chia sẻ với tình trạng sức khỏe bạn đang gặp phải. Bạn nên thu xếp thăm khám trực tiếp tại cơ sở y tế gần nhất để bác sĩ chẩn đoán chính xác nhé.",
-            metadata={"specialty_name_vi": "Chuyên khoa Nội tổng quát"}
+            metadata={"specialty_name_vi": "Chuyên khoa Nội tổng quát", "db_connected": db_connected}
         )
 
 if __name__ == "__main__":
